@@ -353,15 +353,15 @@ html, body {
   min-width: 0;
 }
 
+/* Fixed height for up to two lines (the longest message, "停止しました。
+   スタートで再開、リセットでクリアできます。", wraps to two) so the card
+   doesn't resize every time Start/Stop changes what this says. */
 .status {
   font-size: 13px;
+  line-height: 1.4;
+  min-height: 2.8em;
   color: var(--text-dim);
   margin: 0;
-}
-/* Collapse the row (and its flex gap) entirely when there's no message,
-   instead of reserving blank space for it. */
-.status:empty {
-  display: none;
 }
 
 .records-panel {
