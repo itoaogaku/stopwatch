@@ -28,19 +28,25 @@
 
       <div class="watch-body">
         <div class="timer-panel">
-          <div class="display">00:00.00</div>
+          <div class="display-panel">
+            <div class="display">00:00.00</div>
+            <div class="split-readout">
+              <div class="split-item split-item-a">
+                <span class="split-tag">A</span>
+                <span class="split-time sw-live-a">00:00.00</span>
+              </div>
+              <div class="split-item split-item-b">
+                <span class="split-tag">B</span>
+                <span class="split-time sw-live-b">00:00.00</span>
+              </div>
+            </div>
+          </div>
 
           <div class="controls">
             <button type="button" class="btn btn-primary sw-toggle">スタート</button>
             <div class="lap-group">
-              <button type="button" class="btn btn-lap sw-lap-a" disabled>
-                <span class="lap-btn-label">Aラップ</span>
-                <span class="lap-live sw-live-a">00:00.00</span>
-              </button>
-              <button type="button" class="btn btn-lap sw-lap-b" disabled>
-                <span class="lap-btn-label">Bラップ</span>
-                <span class="lap-live sw-live-b">00:00.00</span>
-              </button>
+              <button type="button" class="btn btn-lap sw-lap-a" disabled>Aラップ</button>
+              <button type="button" class="btn btn-lap sw-lap-b" disabled>Bラップ</button>
               <button type="button" class="btn btn-lap sw-lap-both" disabled>両方</button>
             </div>
           </div>
