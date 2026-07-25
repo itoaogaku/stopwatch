@@ -49,6 +49,19 @@ html, body {
   min-height: 100vh;
 }
 
+/* Sits directly on the white page, like sw-actions, so it needs its
+   own self-contained contrast rather than the dark-panel button look. */
+.global-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.global-actions .btn {
+  flex: 0 0 auto;
+  background: var(--panel-2);
+  border-color: var(--border);
+  color: var(--text);
+}
+
 .stopwatch-list {
   display: flex;
   flex-direction: column;

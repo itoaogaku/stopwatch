@@ -4,6 +4,7 @@
 const el = {
   stopwatchList: document.getElementById('stopwatchList'),
   template: document.getElementById('stopwatchTemplate'),
+  exportAllBtn: document.getElementById('exportAllBtn'),
 };
 
 /* ---------- Time formatting ---------- */
@@ -51,6 +52,7 @@ function createStopwatch(seed) {
   };
 
   const node = el.template.content.firstElementChild.cloneNode(true);
+  node.dataset.swId = id;
   sw.dom = {
     root: node,
     label: node.querySelector('.sw-label'),
@@ -290,13 +292,7 @@ function renderRecords(sw) {
 }
 
 /* ---------- CSV export ---------- */
-function exportCsv(sw) {
-  if (sw.records.length === 0) {
-    setStatus(sw, '記録がありません。');
-    return;
-  }
-  const header = ['No', 'レーン', '記録日時', '区間タイム', '合計タイム'];
-  const rows = sw.records.map((r) => [r.idx, r.track, r.wallClock, formatTime(r.lapMs), formatTime(r.totalMs)]);
+function downloadCsv(header, rows, filenamePrefix) {
   const csv = [header, ...rows]
     .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     .join('\r\n');
@@ -304,10 +300,49 @@ function exportCsv(sw) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `stopwatch_${sw.number}_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+  a.download = `${filenamePrefix}_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
+
+function exportCsv(sw) {
+  if (sw.records.length === 0) {
+    setStatus(sw, '記録がありません。');
+    return;
+  }
+  const header = ['No', 'レーン', '記録日時', '区間タイム', '合計タイム'];
+  const rows = sw.records.map((r) => [r.idx, r.track, r.wallClock, formatTime(r.lapMs), formatTime(r.totalMs)]);
+  downloadCsv(header, rows, `stopwatch_${sw.number}`);
+}
+
+// Walks the DOM in display order (family-groups, then parent-then-children
+// within each) so the combined file's row order matches what's on screen.
+function stopwatchesInDisplayOrder() {
+  const ordered = [];
+  el.stopwatchList.querySelectorAll('.stopwatch-card').forEach((card) => {
+    const sw = stopwatches.get(card.dataset.swId);
+    if (sw) ordered.push(sw);
+  });
+  return ordered;
+}
+
+function exportAllCsv() {
+  const header = ['ストップウォッチ', '親子', 'No', 'レーン', '記録日時', '区間タイム', '合計タイム'];
+  const rows = [];
+  stopwatchesInDisplayOrder().forEach((sw) => {
+    const kind = sw.parentId ? '子' : '親';
+    sw.records.forEach((r) => {
+      rows.push([sw.label, kind, r.idx, r.track, r.wallClock, formatTime(r.lapMs), formatTime(r.totalMs)]);
+    });
+  });
+  if (rows.length === 0) {
+    window.alert('記録がありません。');
+    return;
+  }
+  downloadCsv(header, rows, 'stopwatch_all');
+}
+
+el.exportAllBtn.addEventListener('click', exportAllCsv);
 
 window.addEventListener('load', () => {
   createStopwatch();
