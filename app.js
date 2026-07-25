@@ -1,30 +1,9 @@
 'use strict';
 
-/* ---------- Stopwatch state ---------- */
-const state = {
-  running: false,
-  startEpoch: 0,      // Date.now() at (re)start, minus already-elapsed time
-  elapsedMs: 0,        // frozen elapsed time while paused
-  rafId: null,
-  records: [],          // { idx, lapMs, totalMs, wallClock }
-  lastLapMs: 0,
-  savedCount: 0,        // how many records already pushed to the spreadsheet
-};
-
-/* ---------- DOM ---------- */
+/* ---------- Global DOM (singletons) ---------- */
 const el = {
-  display: document.getElementById('display'),
-  startBtn: document.getElementById('startBtn'),
-  lapBtn: document.getElementById('lapBtn'),
-  stopBtn: document.getElementById('stopBtn'),
-  resetBtn: document.getElementById('resetBtn'),
-  exportCsvBtn: document.getElementById('exportCsvBtn'),
-  saveSheetBtn: document.getElementById('saveSheetBtn'),
-  sheetBtnLabel: document.getElementById('sheetBtnLabel'),
-  status: document.getElementById('status'),
-  records: document.getElementById('records'),
-  recordCount: document.getElementById('recordCount'),
-  emptyState: document.getElementById('emptyState'),
+  stopwatchList: document.getElementById('stopwatchList'),
+  template: document.getElementById('stopwatchTemplate'),
 
   settingsBtn: document.getElementById('settingsBtn'),
   settingsModal: document.getElementById('settingsModal'),
@@ -51,86 +30,176 @@ function formatTime(ms) {
   return hours > 0 ? `${hours}:${base}` : base;
 }
 
-function currentElapsedMs() {
-  if (!state.running) return state.elapsedMs;
-  return state.elapsedMs + (Date.now() - state.startEpoch);
+function currentElapsedMs(sw) {
+  if (!sw.running) return sw.elapsedMs;
+  return sw.elapsedMs + (Date.now() - sw.startEpoch);
 }
 
-/* ---------- Render loop ---------- */
-function tick() {
-  el.display.textContent = formatTime(currentElapsedMs());
-  if (state.running) {
-    state.rafId = requestAnimationFrame(tick);
+/* ---------- Stopwatch instances ---------- */
+const stopwatches = new Map(); // id -> stopwatch instance
+let nextStopwatchNumber = 1;
+
+// seed lets a duplicate start already running, at the source's current elapsed time.
+function createStopwatch(seed) {
+  const id = `sw-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const number = nextStopwatchNumber++;
+
+  const sw = {
+    id,
+    number,
+    label: `ストップウォッチ ${number}`,
+    running: seed?.running ?? false,
+    startEpoch: Date.now(),
+    elapsedMs: seed?.elapsedMs ?? 0,
+    records: [],
+    lastLapMs: 0,
+    savedCount: 0,
+  };
+
+  const node = el.template.content.firstElementChild.cloneNode(true);
+  sw.dom = {
+    root: node,
+    label: node.querySelector('.sw-label'),
+    duplicateBtn: node.querySelector('.sw-duplicate'),
+    removeBtn: node.querySelector('.sw-remove'),
+    display: node.querySelector('.display'),
+    startBtn: node.querySelector('.sw-start'),
+    lapBtn: node.querySelector('.sw-lap'),
+    stopBtn: node.querySelector('.sw-stop'),
+    resetBtn: node.querySelector('.sw-reset'),
+    exportCsvBtn: node.querySelector('.sw-export-csv'),
+    saveSheetBtn: node.querySelector('.sw-save-sheet'),
+    sheetBtnLabel: node.querySelector('.sheet-btn-label'),
+    status: node.querySelector('.sw-status'),
+    records: node.querySelector('.sw-records'),
+    recordCount: node.querySelector('.sw-record-count'),
+    emptyState: node.querySelector('.sw-empty-state'),
+  };
+
+  sw.dom.label.textContent = sw.label;
+  sw.dom.display.textContent = formatTime(currentElapsedMs(sw));
+
+  if (sw.running) {
+    sw.dom.startBtn.disabled = true;
+    sw.dom.lapBtn.disabled = false;
+    sw.dom.stopBtn.disabled = false;
+    sw.dom.resetBtn.disabled = true;
+    setStatus(sw, seed?.statusMessage ?? '計測中…');
   }
+
+  sw.dom.startBtn.addEventListener('click', () => startStopwatch(sw));
+  sw.dom.stopBtn.addEventListener('click', () => stopStopwatch(sw));
+  sw.dom.lapBtn.addEventListener('click', () => addRecord(sw));
+  sw.dom.resetBtn.addEventListener('click', () => resetStopwatch(sw));
+  sw.dom.exportCsvBtn.addEventListener('click', () => exportCsv(sw));
+  sw.dom.saveSheetBtn.addEventListener('click', () => saveToSheet(sw));
+  sw.dom.duplicateBtn.addEventListener('click', () => duplicateStopwatch(sw));
+  sw.dom.removeBtn.addEventListener('click', () => removeStopwatch(sw));
+
+  el.stopwatchList.appendChild(node);
+  stopwatches.set(id, sw);
+  renderRecords(sw);
+  updateRemoveButtons();
+  return sw;
+}
+
+function duplicateStopwatch(source) {
+  const clone = createStopwatch({
+    running: source.running,
+    elapsedMs: currentElapsedMs(source),
+    statusMessage: source.running ? `${source.label} の計測中の状態を引き継ぎました。` : '',
+  });
+  return clone;
+}
+
+function removeStopwatch(sw) {
+  if (stopwatches.size <= 1) return;
+  sw.dom.root.remove();
+  stopwatches.delete(sw.id);
+  updateRemoveButtons();
+}
+
+function updateRemoveButtons() {
+  const disable = stopwatches.size <= 1;
+  stopwatches.forEach((sw) => {
+    sw.dom.removeBtn.disabled = disable;
+  });
+}
+
+/* ---------- Single shared render loop for all running instances ---------- */
+function tickAll() {
+  stopwatches.forEach((sw) => {
+    if (sw.running) {
+      sw.dom.display.textContent = formatTime(currentElapsedMs(sw));
+    }
+  });
+  requestAnimationFrame(tickAll);
 }
 
 /* ---------- Controls ---------- */
-function start() {
-  if (state.running) return;
-  state.running = true;
-  state.startEpoch = Date.now();
-  el.startBtn.disabled = true;
-  el.lapBtn.disabled = false;
-  el.stopBtn.disabled = false;
-  el.resetBtn.disabled = true;
-  setStatus('計測中…');
-  tick();
+function startStopwatch(sw) {
+  if (sw.running) return;
+  sw.running = true;
+  sw.startEpoch = Date.now();
+  sw.dom.startBtn.disabled = true;
+  sw.dom.lapBtn.disabled = false;
+  sw.dom.stopBtn.disabled = false;
+  sw.dom.resetBtn.disabled = true;
+  setStatus(sw, '計測中…');
 }
 
-function stop() {
-  if (!state.running) return;
-  state.elapsedMs = currentElapsedMs();
-  state.running = false;
-  cancelAnimationFrame(state.rafId);
-  el.display.textContent = formatTime(state.elapsedMs);
-  el.startBtn.disabled = false;
-  el.lapBtn.disabled = true;
-  el.stopBtn.disabled = true;
-  el.resetBtn.disabled = false;
-  setStatus('停止しました。スタートで再開、リセットでクリアできます。');
+function stopStopwatch(sw) {
+  if (!sw.running) return;
+  sw.elapsedMs = currentElapsedMs(sw);
+  sw.running = false;
+  sw.dom.display.textContent = formatTime(sw.elapsedMs);
+  sw.dom.startBtn.disabled = false;
+  sw.dom.lapBtn.disabled = true;
+  sw.dom.stopBtn.disabled = true;
+  sw.dom.resetBtn.disabled = false;
+  setStatus(sw, '停止しました。スタートで再開、リセットでクリアできます。');
 }
 
-function reset() {
-  if (state.running) return;
-  state.elapsedMs = 0;
-  state.records = [];
-  state.lastLapMs = 0;
-  state.savedCount = 0;
-  el.display.textContent = formatTime(0);
-  renderRecords();
-  setStatus('');
+function resetStopwatch(sw) {
+  if (sw.running) return;
+  sw.elapsedMs = 0;
+  sw.records = [];
+  sw.lastLapMs = 0;
+  sw.savedCount = 0;
+  sw.dom.display.textContent = formatTime(0);
+  renderRecords(sw);
+  setStatus(sw, '');
 }
 
-function addRecord() {
-  if (!state.running) return;
-  const totalMs = currentElapsedMs();
-  const lapMs = totalMs - state.lastLapMs;
-  state.lastLapMs = totalMs;
+function addRecord(sw) {
+  if (!sw.running) return;
+  const totalMs = currentElapsedMs(sw);
+  const lapMs = totalMs - sw.lastLapMs;
+  sw.lastLapMs = totalMs;
 
-  const record = {
-    idx: state.records.length + 1,
+  sw.records.push({
+    idx: sw.records.length + 1,
     lapMs,
     totalMs,
     wallClock: new Date().toISOString(),
-  };
-  state.records.push(record);
-  renderRecords();
+  });
+  renderRecords(sw);
 }
 
-function setStatus(msg) {
-  el.status.textContent = msg;
+function setStatus(sw, msg) {
+  sw.dom.status.textContent = msg;
 }
 
 /* ---------- Records rendering ---------- */
-function renderRecords() {
-  el.recordCount.textContent = String(state.records.length);
-  el.records.classList.toggle('has-records', state.records.length > 0);
+function renderRecords(sw) {
+  sw.dom.recordCount.textContent = String(sw.records.length);
+  sw.dom.records.classList.toggle('has-records', sw.records.length > 0);
 
   const frag = document.createDocumentFragment();
-  for (let i = state.records.length - 1; i >= 0; i--) {
-    const r = state.records[i];
+  for (let i = sw.records.length - 1; i >= 0; i--) {
+    const r = sw.records[i];
     const row = document.createElement('div');
-    row.className = 'record-row' + (i === state.records.length - 1 ? ' latest' : '');
+    row.className = 'record-row' + (i === sw.records.length - 1 ? ' latest' : '');
     row.innerHTML = `
       <span class="idx">#${r.idx}</span>
       <span class="time-lap">${formatTime(r.lapMs)}</span>
@@ -138,23 +207,18 @@ function renderRecords() {
     `;
     frag.appendChild(row);
   }
-  el.records.innerHTML = '';
-  el.records.appendChild(frag);
+  sw.dom.records.innerHTML = '';
+  sw.dom.records.appendChild(frag);
 }
 
 /* ---------- CSV export ---------- */
-function exportCsv() {
-  if (state.records.length === 0) {
-    setStatus('記録がありません。');
+function exportCsv(sw) {
+  if (sw.records.length === 0) {
+    setStatus(sw, '記録がありません。');
     return;
   }
   const header = ['No', '記録日時', '区間タイム', '合計タイム'];
-  const rows = state.records.map((r) => [
-    r.idx,
-    r.wallClock,
-    formatTime(r.lapMs),
-    formatTime(r.totalMs),
-  ]);
+  const rows = sw.records.map((r) => [r.idx, r.wallClock, formatTime(r.lapMs), formatTime(r.totalMs)]);
   const csv = [header, ...rows]
     .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     .join('\r\n');
@@ -162,7 +226,7 @@ function exportCsv() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `stopwatch_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+  a.download = `stopwatch_${sw.number}_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -206,36 +270,31 @@ async function testConnection() {
   }
 }
 
-async function saveToSheet() {
+async function saveToSheet(sw) {
   if (!sheets.scriptUrl) {
     openSettings();
-    setStatus('ウェブアプリURLを設定してください。');
+    setStatus(sw, 'ウェブアプリURLを設定してください。');
     return;
   }
-  const pending = state.records.slice(state.savedCount);
+  const pending = sw.records.slice(sw.savedCount);
   if (pending.length === 0) {
-    setStatus('保存する新しい記録がありません。');
+    setStatus(sw, '保存する新しい記録がありません。');
     return;
   }
 
-  el.saveSheetBtn.disabled = true;
-  el.sheetBtnLabel.textContent = '保存中…';
+  sw.dom.saveSheetBtn.disabled = true;
+  sw.dom.sheetBtnLabel.textContent = '保存中…';
   try {
-    const rows = pending.map((r) => [
-      r.idx,
-      r.wallClock,
-      formatTime(r.lapMs),
-      formatTime(r.totalMs),
-    ]);
+    const rows = pending.map((r) => [r.idx, sw.label, r.wallClock, formatTime(r.lapMs), formatTime(r.totalMs)]);
     await postToScript({ secret: sheets.secret, sheetName: sheets.sheetName, rows });
-    state.savedCount = state.records.length;
-    setStatus(`${pending.length}件をスプレッドシートに保存しました。`);
+    sw.savedCount = sw.records.length;
+    setStatus(sw, `${pending.length}件をスプレッドシートに保存しました。`);
   } catch (err) {
     console.error(err);
-    setStatus(`スプレッドシートへの保存に失敗しました: ${err.message}`);
+    setStatus(sw, `スプレッドシートへの保存に失敗しました: ${err.message}`);
   } finally {
-    el.saveSheetBtn.disabled = false;
-    el.sheetBtnLabel.textContent = 'スプレッドシートに保存';
+    sw.dom.saveSheetBtn.disabled = false;
+    sw.dom.sheetBtnLabel.textContent = 'スプレッドシートに保存';
   }
 }
 
@@ -262,14 +321,7 @@ function saveSettings() {
   el.testStatus.textContent = '設定を保存しました。';
 }
 
-/* ---------- Wire up events ---------- */
-el.startBtn.addEventListener('click', start);
-el.stopBtn.addEventListener('click', stop);
-el.lapBtn.addEventListener('click', addRecord);
-el.resetBtn.addEventListener('click', reset);
-el.exportCsvBtn.addEventListener('click', exportCsv);
-el.saveSheetBtn.addEventListener('click', saveToSheet);
-
+/* ---------- Wire up global events ---------- */
 el.settingsBtn.addEventListener('click', openSettings);
 el.closeSettingsBtn.addEventListener('click', closeSettings);
 el.settingsModal.addEventListener('click', (e) => {
@@ -281,5 +333,6 @@ el.saveSettingsBtn.addEventListener('click', () => {
 el.testConnectionBtn.addEventListener('click', testConnection);
 
 window.addEventListener('load', () => {
-  el.display.textContent = formatTime(0);
+  createStopwatch();
+  requestAnimationFrame(tickAll);
 });

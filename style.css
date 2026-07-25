@@ -56,6 +56,50 @@ html, body {
   cursor: pointer;
 }
 .icon-btn:hover { background: var(--panel); }
+.icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.stopwatch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stopwatch-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.stopwatch-card + .stopwatch-card {
+  margin-top: 12px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+
+.sw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sw-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+.sw-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
 
 .timer-panel {
   background: var(--panel);

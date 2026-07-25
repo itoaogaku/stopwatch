@@ -13,35 +13,49 @@
       <button id="settingsBtn" class="icon-btn" title="スプレッドシート設定" aria-label="設定">⚙</button>
     </header>
 
-    <section class="timer-panel">
-      <div id="display" class="display">00:00.00</div>
-
-      <div class="controls">
-        <div class="start-stop-col">
-          <button id="startBtn" class="btn btn-primary">スタート</button>
-          <button id="stopBtn" class="btn btn-danger" disabled>ストップ</button>
-        </div>
-        <button id="lapBtn" class="btn btn-lap" disabled>ラップ</button>
-      </div>
-      <div class="controls controls-secondary">
-        <button id="resetBtn" class="btn btn-ghost">リセット</button>
-        <button id="exportCsvBtn" class="btn btn-ghost">CSV保存</button>
-        <button id="saveSheetBtn" class="btn btn-ghost">
-          <span id="sheetBtnLabel">スプレッドシートに保存</span>
-        </button>
-      </div>
-      <p id="status" class="status" role="status" aria-live="polite"></p>
-    </section>
-
-    <section class="records-panel">
-      <div class="records-header">
-        <h2>記録 <span id="recordCount" class="count-badge">0</span></h2>
-        <div class="legend">区間タイム / 累計タイム</div>
-      </div>
-      <div id="records" class="records-grid" aria-label="ラップ記録"></div>
-      <p id="emptyState" class="empty-state">スタートすると、ここにラップの記録が並びます。</p>
-    </section>
+    <div id="stopwatchList" class="stopwatch-list"></div>
   </div>
+
+  <template id="stopwatchTemplate">
+    <section class="stopwatch-card">
+      <div class="sw-header">
+        <span class="sw-label"></span>
+        <div class="sw-actions">
+          <button type="button" class="btn btn-ghost btn-sm sw-duplicate">複製</button>
+          <button type="button" class="btn btn-ghost btn-sm sw-remove">削除</button>
+        </div>
+      </div>
+
+      <div class="timer-panel">
+        <div class="display">00:00.00</div>
+
+        <div class="controls">
+          <div class="start-stop-col">
+            <button type="button" class="btn btn-primary sw-start">スタート</button>
+            <button type="button" class="btn btn-danger sw-stop" disabled>ストップ</button>
+          </div>
+          <button type="button" class="btn btn-lap sw-lap" disabled>ラップ</button>
+        </div>
+        <div class="controls controls-secondary">
+          <button type="button" class="btn btn-ghost sw-reset">リセット</button>
+          <button type="button" class="btn btn-ghost sw-export-csv">CSV保存</button>
+          <button type="button" class="btn btn-ghost sw-save-sheet">
+            <span class="sheet-btn-label">スプレッドシートに保存</span>
+          </button>
+        </div>
+        <p class="status sw-status" role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="records-panel">
+        <div class="records-header">
+          <h2>記録 <span class="count-badge sw-record-count">0</span></h2>
+          <div class="legend">区間タイム / 累計タイム</div>
+        </div>
+        <div class="records-grid sw-records" aria-label="ラップ記録"></div>
+        <p class="empty-state sw-empty-state">スタートすると、ここにラップの記録が並びます。</p>
+      </div>
+    </section>
+  </template>
 
   <div id="settingsModal" class="modal hidden">
     <div class="modal-content">

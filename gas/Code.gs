@@ -6,7 +6,7 @@
 
 var SHEET_NAME_DEFAULT = 'シート1';
 var SECRET = 'ここに合言葉を設定'; // アプリの設定画面に入力する値と一致させる
-var HEADER = ['No', '記録日時', '区間タイム', '合計タイム'];
+var HEADER = ['No', 'ストップウォッチ', '記録日時', '区間タイム', '合計タイム'];
 
 function doPost(e) {
   return handleRequest_(e);
