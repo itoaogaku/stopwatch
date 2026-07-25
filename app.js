@@ -41,9 +41,9 @@ function createStopwatch(seed) {
     running: seed?.running ?? false,
     startEpoch: Date.now(),
     elapsedMs: seed?.elapsedMs ?? 0,
-    records: [],
-    lastLapMs: { A: 0, B: 0 },
-    lapCount: { A: 0, B: 0 },
+    records: seed?.records ? seed.records.map((r) => ({ ...r })) : [],
+    lastLapMs: seed?.lastLapMs ? { ...seed.lastLapMs } : { A: 0, B: 0 },
+    lapCount: seed?.lapCount ? { ...seed.lapCount } : { A: 0, B: 0 },
   };
 
   const node = el.template.content.firstElementChild.cloneNode(true);
@@ -109,6 +109,9 @@ function duplicateStopwatch(source) {
   const clone = createStopwatch({
     running: source.running,
     elapsedMs: currentElapsedMs(source),
+    records: source.records,
+    lastLapMs: source.lastLapMs,
+    lapCount: source.lapCount,
     statusMessage: source.running ? `${source.label} の計測中の状態を引き継ぎました。` : '',
   });
   return clone;
