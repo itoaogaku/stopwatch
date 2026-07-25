@@ -49,19 +49,6 @@ html, body {
   min-height: 100vh;
 }
 
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.topbar h1 {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0;
-  color: var(--ink-dim);
-}
-
 .stopwatch-list {
   display: flex;
   flex-direction: column;
