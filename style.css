@@ -282,10 +282,14 @@ html, body {
 }
 
 .status {
-  min-height: 18px;
   font-size: 13px;
   color: var(--text-dim);
   margin: 0;
+}
+/* Collapse the row (and its flex gap) entirely when there's no message,
+   instead of reserving blank space for it. */
+.status:empty {
+  display: none;
 }
 
 .records-panel {
