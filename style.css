@@ -418,6 +418,14 @@ html, body {
   padding-left: 10px;
 }
 
+/* Reveals laps older than the latest 5 shown by default. */
+.records-more {
+  width: 100%;
+  margin-top: 6px;
+  padding: 5px 6px;
+  font-size: 11px;
+}
+
 .records-col-head {
   display: flex;
   align-items: center;

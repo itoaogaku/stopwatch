@@ -49,6 +49,7 @@ function createStopwatch(seed) {
     records: seed?.records ? seed.records.map((r) => ({ ...r })) : [],
     lastLapMs: seed?.lastLapMs ? { ...seed.lastLapMs } : { A: 0, B: 0 },
     lapCount: seed?.lapCount ? { ...seed.lapCount } : { A: 0, B: 0 },
+    expanded: { A: false, B: false },
   };
 
   const node = el.template.content.firstElementChild.cloneNode(true);
@@ -72,6 +73,8 @@ function createStopwatch(seed) {
     recordsB: node.querySelector('.sw-records-b'),
     countA: node.querySelector('.sw-count-a'),
     countB: node.querySelector('.sw-count-b'),
+    moreA: node.querySelector('.sw-more-a'),
+    moreB: node.querySelector('.sw-more-b'),
     latestA: node.querySelector('.sw-latest-a'),
     latestB: node.querySelector('.sw-latest-b'),
   };
@@ -101,6 +104,14 @@ function createStopwatch(seed) {
   sw.dom.exportCsvBtn.addEventListener('click', () => exportCsv(sw));
   sw.dom.duplicateBtn.addEventListener('click', () => duplicateStopwatch(sw));
   sw.dom.removeBtn.addEventListener('click', () => removeStopwatch(sw));
+  sw.dom.moreA.addEventListener('click', () => {
+    sw.expanded.A = !sw.expanded.A;
+    renderRecords(sw);
+  });
+  sw.dom.moreB.addEventListener('click', () => {
+    sw.expanded.B = !sw.expanded.B;
+    renderRecords(sw);
+  });
 
   const rootId = sw.parentId ?? sw.id;
   let group = familyGroups.get(rootId);
@@ -260,6 +271,7 @@ function resetStopwatch(sw) {
   sw.records = [];
   sw.lastLapMs = { A: 0, B: 0 };
   sw.lapCount = { A: 0, B: 0 };
+  sw.expanded = { A: false, B: false };
   sw.dom.display.textContent = formatTime(0);
   renderRecords(sw);
   updateLiveSplits(sw);
@@ -299,12 +311,17 @@ function setStatus(sw, msg) {
 }
 
 /* ---------- Records rendering ---------- */
-function renderColumn(container, countEl, records, track) {
+const VISIBLE_RECORD_COUNT = 5;
+
+function renderColumn(container, countEl, moreBtn, records, track, expanded) {
   const trackRecords = records.filter((r) => r.track === track);
   countEl.textContent = String(trackRecords.length);
 
+  const hiddenCount = trackRecords.length - VISIBLE_RECORD_COUNT;
+  const visibleCount = expanded || hiddenCount <= 0 ? trackRecords.length : VISIBLE_RECORD_COUNT;
+
   const frag = document.createDocumentFragment();
-  for (let i = trackRecords.length - 1; i >= 0; i--) {
+  for (let i = trackRecords.length - 1; i >= trackRecords.length - visibleCount; i--) {
     const r = trackRecords[i];
     const row = document.createElement('div');
     row.className = 'record-row' + (i === trackRecords.length - 1 ? ' latest' : '');
@@ -319,11 +336,18 @@ function renderColumn(container, countEl, records, track) {
   }
   container.innerHTML = '';
   container.appendChild(frag);
+
+  if (hiddenCount > 0) {
+    moreBtn.hidden = false;
+    moreBtn.textContent = expanded ? '折りたたむ' : `もっと見る(${hiddenCount}件)`;
+  } else {
+    moreBtn.hidden = true;
+  }
 }
 
 function renderRecords(sw) {
-  renderColumn(sw.dom.recordsA, sw.dom.countA, sw.records, 'A');
-  renderColumn(sw.dom.recordsB, sw.dom.countB, sw.records, 'B');
+  renderColumn(sw.dom.recordsA, sw.dom.countA, sw.dom.moreA, sw.records, 'A', sw.expanded.A);
+  renderColumn(sw.dom.recordsB, sw.dom.countB, sw.dom.moreB, sw.records, 'B', sw.expanded.B);
 }
 
 /* ---------- CSV export ---------- */
