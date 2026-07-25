@@ -15,7 +15,7 @@
 <body>
   <div class="app">
     <div class="global-actions">
-      <button type="button" id="exportAllBtn" class="btn btn-ghost">全てCSV保存</button>
+      <button type="button" id="exportAllBtn" class="btn btn-ghost">全てExcel保存</button>
     </div>
     <div id="stopwatchList" class="stopwatch-list"></div>
   </div>
@@ -62,7 +62,7 @@
           </div>
           <div class="secondary-actions">
             <button type="button" class="btn btn-ghost sw-reset">リセット</button>
-            <button type="button" class="btn btn-ghost sw-export-csv">CSV保存</button>
+            <button type="button" class="btn btn-ghost sw-export-csv">Excel保存</button>
           </div>
           <p class="status sw-status" role="status" aria-live="polite"></p>
         </div>
@@ -94,6 +94,7 @@
     </section>
   </template>
 
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

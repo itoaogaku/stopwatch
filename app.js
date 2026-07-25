@@ -112,7 +112,7 @@ function createStopwatch(seed) {
   sw.dom.lapBBtn.addEventListener('click', () => addRecord(sw, 'B'));
   sw.dom.lapBothBtn.addEventListener('click', () => addRecord(sw, 'both'));
   sw.dom.resetBtn.addEventListener('click', () => resetStopwatch(sw));
-  sw.dom.exportCsvBtn.addEventListener('click', () => exportCsv(sw));
+  sw.dom.exportCsvBtn.addEventListener('click', () => exportExcel(sw));
   sw.dom.duplicateBtn.addEventListener('click', () => duplicateStopwatch(sw));
   sw.dom.removeBtn.addEventListener('click', () => removeStopwatch(sw));
   sw.dom.moreBtn.addEventListener('click', () => {
@@ -365,28 +365,65 @@ function renderRecords(sw) {
   }
 }
 
-/* ---------- CSV export ---------- */
-function downloadCsv(header, rows, filenamePrefix) {
-  const csv = [header, ...rows]
-    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-    .join('\r\n');
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+/* ---------- Excel export ---------- */
+function sanitizeSheetName(name) {
+  return name.replace(/[\\/*?:[\]]/g, '').slice(0, 31) || 'Sheet1';
+}
+
+async function downloadExcel(sheetName, header, rows, filenamePrefix) {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet(sanitizeSheetName(sheetName));
+  sheet.addRow(header);
+  rows.forEach((row) => sheet.addRow(row));
+
+  const headerRow = sheet.getRow(1);
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF322F2B' } };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+  });
+
+  const thin = { style: 'thin', color: { argb: 'FFB8B0A6' } };
+  sheet.eachRow((row) => {
+    row.eachCell({ includeEmpty: true }, (cell) => {
+      cell.border = { top: thin, left: thin, bottom: thin, right: thin };
+    });
+  });
+
+  header.forEach((label, i) => {
+    let maxLen = String(label).length;
+    rows.forEach((row) => {
+      const len = String(row[i] ?? '').length;
+      if (len > maxLen) maxLen = len;
+    });
+    sheet.getColumn(i + 1).width = Math.min(maxLen + 2, 28);
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${filenamePrefix}_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+  a.download = `${filenamePrefix}_${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
-function exportCsv(sw) {
+async function exportExcel(sw) {
   if (sw.records.length === 0) {
     setStatus(sw, '記録がありません。');
     return;
   }
   const header = ['No', 'レーン', '記録日時', '区間タイム', '合計タイム'];
   const rows = sw.records.map((r) => [r.idx, r.track, r.wallClock, formatTime(r.lapMs), formatTime(r.totalMs)]);
-  downloadCsv(header, rows, `stopwatch_${sw.number}`);
+  sw.dom.exportCsvBtn.disabled = true;
+  try {
+    await downloadExcel(sw.label, header, rows, `stopwatch_${sw.number}`);
+  } finally {
+    sw.dom.exportCsvBtn.disabled = false;
+  }
 }
 
 // Walks the DOM in display order (family-groups, then parent-then-children
@@ -400,7 +437,7 @@ function stopwatchesInDisplayOrder() {
   return ordered;
 }
 
-function exportAllCsv() {
+async function exportAllExcel() {
   const header = ['ストップウォッチ', '親子', 'No', 'レーン', '記録日時', '区間タイム', '合計タイム'];
   const rows = [];
   stopwatchesInDisplayOrder().forEach((sw) => {
@@ -413,10 +450,15 @@ function exportAllCsv() {
     window.alert('記録がありません。');
     return;
   }
-  downloadCsv(header, rows, 'stopwatch_all');
+  el.exportAllBtn.disabled = true;
+  try {
+    await downloadExcel('記録一覧', header, rows, 'stopwatch_all');
+  } finally {
+    el.exportAllBtn.disabled = false;
+  }
 }
 
-el.exportAllBtn.addEventListener('click', exportAllCsv);
+el.exportAllBtn.addEventListener('click', exportAllExcel);
 
 window.addEventListener('load', () => {
   createStopwatch();
