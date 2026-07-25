@@ -180,19 +180,21 @@ html, body {
 }
 
 .split-tag {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.04em;
   opacity: 0.7;
 }
 
 .split-time {
-  font-size: 16px;
+  font-size: 21px;
   font-weight: 700;
 }
 
-.split-item-a { color: var(--lcd-ink); }
-.split-item-b { color: var(--accent); }
+.split-item-a,
+.split-item-b {
+  color: var(--lcd-ink);
+}
 
 /* Slim full-width toggle on top, tall lap buttons below — keeps the
    red Start/Stop bar as thin as possible so the lap results below
