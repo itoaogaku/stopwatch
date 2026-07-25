@@ -31,6 +31,18 @@ const stopwatches = new Map(); // id -> stopwatch instance
 const familyGroups = new Map(); // root parent id -> wrapping DOM element for that parent + its children
 let nextStopwatchNumber = 1;
 
+// 1 -> A, 2 -> B, ..., 26 -> Z, 27 -> AA, 28 -> AB, ... (spreadsheet-style).
+function defaultLabelFor(number) {
+  let n = number;
+  let label = '';
+  while (n > 0) {
+    n -= 1;
+    label = String.fromCharCode(65 + (n % 26)) + label;
+    n = Math.floor(n / 26);
+  }
+  return label;
+}
+
 // seed lets a duplicate start already running, at the source's current elapsed time.
 // seed.parentId, if set, makes this a child grouped under that root parent instead
 // of a new independent parent.
@@ -41,7 +53,7 @@ function createStopwatch(seed) {
   const sw = {
     id,
     number,
-    label: `ストップウォッチ ${number}`,
+    label: defaultLabelFor(number),
     parentId: seed?.parentId ?? null,
     running: seed?.running ?? false,
     startEpoch: Date.now(),
@@ -127,7 +139,7 @@ function createStopwatch(seed) {
 
 function renameStopwatch(sw) {
   const text = sw.dom.label.textContent.trim();
-  sw.label = text || `ストップウォッチ ${sw.number}`;
+  sw.label = text || defaultLabelFor(sw.number);
   sw.dom.label.textContent = sw.label;
 }
 
