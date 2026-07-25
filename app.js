@@ -72,6 +72,8 @@ function createStopwatch(seed) {
     recordsB: node.querySelector('.sw-records-b'),
     countA: node.querySelector('.sw-count-a'),
     countB: node.querySelector('.sw-count-b'),
+    latestAll: node.querySelector('.sw-latest-all'),
+    latestAllList: node.querySelector('.sw-latest-all-list'),
   };
 
   if (sw.parentId) node.classList.add('is-child');
@@ -113,6 +115,7 @@ function createStopwatch(seed) {
   stopwatches.set(id, sw);
   renderRecords(sw);
   updateRemoveButtons();
+  refreshAllLatestPanels();
   return sw;
 }
 
@@ -120,6 +123,7 @@ function renameStopwatch(sw) {
   const text = sw.dom.label.textContent.trim();
   sw.label = text || `ストップウォッチ ${sw.number}`;
   sw.dom.label.textContent = sw.label;
+  refreshAllLatestPanels();
 }
 
 // Duplicating a stopped stopwatch starts a new independent parent.
@@ -150,6 +154,7 @@ function removeStopwatch(sw) {
     familyGroups.delete(rootId);
   }
   updateRemoveButtons();
+  refreshAllLatestPanels();
 }
 
 function updateRemoveButtons() {
@@ -164,6 +169,43 @@ function updateLiveSplits(sw) {
   const totalMs = currentElapsedMs(sw);
   sw.dom.liveA.textContent = formatTime(totalMs - sw.lastLapMs.A);
   sw.dom.liveB.textContent = formatTime(totalMs - sw.lastLapMs.B);
+}
+
+/* ---------- "Every stopwatch's latest lap", shown under a running clock ---------- */
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function latestRecordOf(sw) {
+  return sw.records.length ? sw.records[sw.records.length - 1] : null;
+}
+
+function renderLatestAllPanel(sw) {
+  const rows = stopwatchesInDisplayOrder()
+    .map((other) => ({ other, record: latestRecordOf(other) }))
+    .filter(({ record }) => record);
+
+  sw.dom.latestAllList.innerHTML = rows
+    .map(
+      ({ other, record: r }) => `
+      <div class="latest-all-row">
+        <span class="latest-all-name">${escapeHtml(other.label)}</span>
+        <span class="latest-all-tag track-${r.track.toLowerCase()}">${r.track}</span>
+        <span class="latest-all-lap">${formatTime(r.lapMs)}</span>
+        <span class="latest-all-total">${formatTime(r.totalMs)}</span>
+      </div>
+    `
+    )
+    .join('');
+}
+
+// Refreshes every running stopwatch's "latest across all" panel — called
+// whenever any stopwatch's data changes, since that can affect all of them.
+function refreshAllLatestPanels() {
+  stopwatches.forEach((sw) => {
+    sw.dom.latestAll.classList.toggle('is-visible', sw.running);
+    if (sw.running) renderLatestAllPanel(sw);
+  });
 }
 
 /* ---------- Single shared render loop for all running instances ---------- */
@@ -203,6 +245,7 @@ function startStopwatch(sw) {
   sw.startEpoch = Date.now();
   setRunningUi(sw, '計測中…');
   updateLiveSplits(sw);
+  refreshAllLatestPanels();
 }
 
 function stopStopwatch(sw) {
@@ -219,6 +262,7 @@ function stopStopwatch(sw) {
   sw.dom.resetBtn.disabled = false;
   setStatus(sw, '停止しました。スタートで再開、リセットでクリアできます。');
   updateLiveSplits(sw);
+  refreshAllLatestPanels();
 }
 
 function resetStopwatch(sw) {
@@ -231,6 +275,7 @@ function resetStopwatch(sw) {
   renderRecords(sw);
   updateLiveSplits(sw);
   setStatus(sw, '');
+  refreshAllLatestPanels();
 }
 
 function pushLap(sw, track, totalMs) {
@@ -257,6 +302,7 @@ function addRecord(sw, track) {
   }
   renderRecords(sw);
   updateLiveSplits(sw);
+  refreshAllLatestPanels();
 }
 
 function setStatus(sw, msg) {

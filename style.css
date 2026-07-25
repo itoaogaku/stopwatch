@@ -222,6 +222,87 @@ html, body {
   font-weight: 700;
 }
 
+/* Every stopwatch's most recent lap, shown under this one's clock only
+   while it's running. */
+.latest-all {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.latest-all.is-visible {
+  display: flex;
+}
+
+.latest-all-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.latest-all-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.latest-all-row {
+  display: grid;
+  grid-template-columns: 1fr 22px auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.latest-all-name {
+  font-size: 11px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.latest-all-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+  border-radius: 4px;
+  padding: 1px 0;
+}
+.latest-all-tag.track-a {
+  background: var(--lcd-bg);
+  color: var(--lcd-ink);
+}
+.latest-all-tag.track-b {
+  background: var(--accent-dim);
+  color: var(--text);
+}
+
+.latest-all-lap {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+}
+
+.latest-all-total {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: right;
+}
+
 .split-item-a,
 .split-item-b {
   color: var(--lcd-ink);
