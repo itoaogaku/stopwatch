@@ -238,7 +238,6 @@ function setStatus(sw, msg) {
 function renderColumn(container, countEl, records, track) {
   const trackRecords = records.filter((r) => r.track === track);
   countEl.textContent = String(trackRecords.length);
-  container.classList.toggle('has-records', trackRecords.length > 0);
 
   const frag = document.createDocumentFragment();
   for (let i = trackRecords.length - 1; i >= 0; i--) {

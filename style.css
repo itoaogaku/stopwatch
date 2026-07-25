@@ -423,17 +423,6 @@ html, body {
   outline: 1px solid var(--accent);
 }
 
-.empty-state {
-  color: var(--text-dim);
-  font-size: 13px;
-  text-align: center;
-  padding: 24px 0;
-}
-.records-grid:not(:empty) + .empty-state,
-.records-grid.has-records + .empty-state {
-  display: none;
-}
-
 /* Modal */
 .modal {
   position: fixed;
