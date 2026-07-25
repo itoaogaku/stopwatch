@@ -160,11 +160,11 @@ html, body {
 }
 
 .timer-panel {
-  padding: 24px 16px;
+  padding: 24px 16px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 /* The whole LCD screen — main time plus the A/B live splits inside
@@ -309,7 +309,7 @@ html, body {
   width: 100%;
   gap: 6px;
   border-top: 1px solid var(--border);
-  padding-top: 12px;
+  padding-top: 8px;
 }
 .secondary-actions .btn {
   flex: 1 1 auto;
@@ -366,7 +366,7 @@ html, body {
 
 .records-panel {
   border-top: 1px solid var(--border);
-  padding: 16px;
+  padding: 10px 12px 12px;
 }
 
 .records-header {
@@ -375,7 +375,7 @@ html, body {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .records-header h2 {
@@ -410,7 +410,7 @@ html, body {
 .records-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 10px;
 }
 
 .records-col {
@@ -418,7 +418,7 @@ html, body {
 }
 .records-col + .records-col {
   border-left: 1px solid var(--border);
-  padding-left: 16px;
+  padding-left: 10px;
 }
 
 .records-col-head {
@@ -426,7 +426,7 @@ html, body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .col-tag {
@@ -448,7 +448,7 @@ html, body {
 /* Dense multi-column grid so many laps are visible at a glance */
 .records-grid {
   column-width: 130px;
-  column-gap: 10px;
+  column-gap: 8px;
 }
 
 /* Two lines per record (idx+lap time, then total time) instead of three
@@ -457,11 +457,11 @@ html, body {
 .record-row {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px 8px;
+  gap: 1px;
+  padding: 4px 6px;
   border-radius: 6px;
   break-inside: avoid;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
 }
