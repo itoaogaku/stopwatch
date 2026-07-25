@@ -68,6 +68,8 @@ function createStopwatch(seed) {
     lapABtn: node.querySelector('.sw-lap-a'),
     lapBBtn: node.querySelector('.sw-lap-b'),
     lapBothBtn: node.querySelector('.sw-lap-both'),
+    liveA: node.querySelector('.sw-live-a'),
+    liveB: node.querySelector('.sw-live-b'),
     resetBtn: node.querySelector('.sw-reset'),
     exportCsvBtn: node.querySelector('.sw-export-csv'),
     saveSheetBtn: node.querySelector('.sw-save-sheet'),
@@ -81,6 +83,7 @@ function createStopwatch(seed) {
 
   sw.dom.label.textContent = sw.label;
   sw.dom.display.textContent = formatTime(currentElapsedMs(sw));
+  updateLiveSplits(sw);
 
   if (sw.running) {
     setRunningUi(sw, seed?.statusMessage ?? '計測中…');
@@ -126,11 +129,19 @@ function updateRemoveButtons() {
   });
 }
 
+/* ---------- Live "time since last lap" readouts on the A/B lap buttons ---------- */
+function updateLiveSplits(sw) {
+  const totalMs = currentElapsedMs(sw);
+  sw.dom.liveA.textContent = formatTime(totalMs - sw.lastLapMs.A);
+  sw.dom.liveB.textContent = formatTime(totalMs - sw.lastLapMs.B);
+}
+
 /* ---------- Single shared render loop for all running instances ---------- */
 function tickAll() {
   stopwatches.forEach((sw) => {
     if (sw.running) {
       sw.dom.display.textContent = formatTime(currentElapsedMs(sw));
+      updateLiveSplits(sw);
     }
   });
   requestAnimationFrame(tickAll);
@@ -161,6 +172,7 @@ function startStopwatch(sw) {
   sw.running = true;
   sw.startEpoch = Date.now();
   setRunningUi(sw, '計測中…');
+  updateLiveSplits(sw);
 }
 
 function stopStopwatch(sw) {
@@ -176,6 +188,7 @@ function stopStopwatch(sw) {
   sw.dom.lapBothBtn.disabled = true;
   sw.dom.resetBtn.disabled = false;
   setStatus(sw, '停止しました。スタートで再開、リセットでクリアできます。');
+  updateLiveSplits(sw);
 }
 
 function resetStopwatch(sw) {
@@ -187,6 +200,7 @@ function resetStopwatch(sw) {
   sw.savedCount = 0;
   sw.dom.display.textContent = formatTime(0);
   renderRecords(sw);
+  updateLiveSplits(sw);
   setStatus(sw, '');
 }
 
@@ -213,6 +227,7 @@ function addRecord(sw, track) {
     pushLap(sw, track, totalMs);
   }
   renderRecords(sw);
+  updateLiveSplits(sw);
 }
 
 function setStatus(sw, msg) {
