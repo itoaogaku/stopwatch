@@ -26,33 +26,35 @@
         </div>
       </div>
 
-      <div class="timer-panel">
-        <div class="display">00:00.00</div>
+      <div class="watch-body">
+        <div class="timer-panel">
+          <div class="display">00:00.00</div>
 
-        <div class="controls">
-          <div class="start-stop-col">
-            <button type="button" class="btn btn-primary sw-start">スタート</button>
-            <button type="button" class="btn btn-danger sw-stop" disabled>ストップ</button>
+          <div class="controls">
+            <div class="start-stop-col">
+              <button type="button" class="btn btn-primary sw-start">スタート</button>
+              <button type="button" class="btn btn-danger sw-stop" disabled>ストップ</button>
+            </div>
+            <button type="button" class="btn btn-lap sw-lap" disabled>ラップ</button>
           </div>
-          <button type="button" class="btn btn-lap sw-lap" disabled>ラップ</button>
+          <div class="controls controls-secondary">
+            <button type="button" class="btn btn-ghost sw-reset">リセット</button>
+            <button type="button" class="btn btn-ghost sw-export-csv">CSV保存</button>
+            <button type="button" class="btn btn-ghost sw-save-sheet">
+              <span class="sheet-btn-label">スプレッドシートに保存</span>
+            </button>
+          </div>
+          <p class="status sw-status" role="status" aria-live="polite"></p>
         </div>
-        <div class="controls controls-secondary">
-          <button type="button" class="btn btn-ghost sw-reset">リセット</button>
-          <button type="button" class="btn btn-ghost sw-export-csv">CSV保存</button>
-          <button type="button" class="btn btn-ghost sw-save-sheet">
-            <span class="sheet-btn-label">スプレッドシートに保存</span>
-          </button>
-        </div>
-        <p class="status sw-status" role="status" aria-live="polite"></p>
-      </div>
 
-      <div class="records-panel">
-        <div class="records-header">
-          <h2>記録 <span class="count-badge sw-record-count">0</span></h2>
-          <div class="legend">区間タイム / 累計タイム</div>
+        <div class="records-panel">
+          <div class="records-header">
+            <h2>記録 <span class="count-badge sw-record-count">0</span></h2>
+            <div class="legend">区間タイム / 累計タイム</div>
+          </div>
+          <div class="records-grid sw-records" aria-label="ラップ記録"></div>
+          <p class="empty-state sw-empty-state">スタートすると、ここにラップの記録が並びます。</p>
         </div>
-        <div class="records-grid sw-records" aria-label="ラップ記録"></div>
-        <p class="empty-state sw-empty-state">スタートすると、ここにラップの記録が並びます。</p>
       </div>
     </section>
   </template>
