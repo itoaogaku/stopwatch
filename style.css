@@ -240,8 +240,11 @@ html, body {
   padding-top: 12px;
 }
 .secondary-actions .btn {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-width: 0;
+  padding: 6px 8px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .btn {
