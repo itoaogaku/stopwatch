@@ -115,7 +115,7 @@ function createStopwatch(seed) {
   stopwatches.set(id, sw);
   renderRecords(sw);
   updateRemoveButtons();
-  refreshAllLatestPanels();
+  refreshLatestPanels(sw);
   return sw;
 }
 
@@ -123,7 +123,6 @@ function renameStopwatch(sw) {
   const text = sw.dom.label.textContent.trim();
   sw.label = text || `ストップウォッチ ${sw.number}`;
   sw.dom.label.textContent = sw.label;
-  refreshAllLatestPanels();
 }
 
 // Duplicating a stopped stopwatch starts a new independent parent.
@@ -154,7 +153,6 @@ function removeStopwatch(sw) {
     familyGroups.delete(rootId);
   }
   updateRemoveButtons();
-  refreshAllLatestPanels();
 }
 
 function updateRemoveButtons() {
@@ -171,11 +169,7 @@ function updateLiveSplits(sw) {
   sw.dom.liveB.textContent = formatTime(totalMs - sw.lastLapMs.B);
 }
 
-/* ---------- "Every stopwatch's latest lap", shown per-lane under a running clock ---------- */
-function escapeHtml(str) {
-  return str.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
+/* ---------- Each lane's own latest lap, shown under its live split while running ---------- */
 function latestRecordForTrack(sw, track) {
   for (let i = sw.records.length - 1; i >= 0; i--) {
     if (sw.records[i].track === track) return sw.records[i];
@@ -183,37 +177,27 @@ function latestRecordForTrack(sw, track) {
   return null;
 }
 
-function renderLatestLanePanel(track, listEl) {
-  const rows = stopwatchesInDisplayOrder()
-    .map((other) => ({ other, record: latestRecordForTrack(other, track) }))
-    .filter(({ record }) => record);
-
-  listEl.innerHTML = rows
-    .map(
-      ({ other, record: r }) => `
+function renderLatestLane(sw, track, el) {
+  const r = latestRecordForTrack(sw, track);
+  el.innerHTML = r
+    ? `
       <div class="latest-lane-row">
-        <span class="latest-lane-name">${escapeHtml(other.label)}</span>
-        <span class="latest-lane-times">
-          <span class="latest-lane-lap">${formatTime(r.lapMs)}</span>
-          <span class="latest-lane-total">${formatTime(r.totalMs)}</span>
-        </span>
+        <span class="latest-lane-lap">${formatTime(r.lapMs)}</span>
+        <span class="latest-lane-total">${formatTime(r.totalMs)}</span>
       </div>
     `
-    )
-    .join('');
+    : '';
 }
 
-// Refreshes every running stopwatch's per-lane "latest across all" lists —
-// called whenever any stopwatch's data changes, since that can affect all of them.
-function refreshAllLatestPanels() {
-  stopwatches.forEach((sw) => {
-    sw.dom.latestA.classList.toggle('is-visible', sw.running);
-    sw.dom.latestB.classList.toggle('is-visible', sw.running);
-    if (sw.running) {
-      renderLatestLanePanel('A', sw.dom.latestA);
-      renderLatestLanePanel('B', sw.dom.latestB);
-    }
-  });
+// Refreshes a stopwatch's own A/B latest-lap readouts — called whenever its
+// own data changes.
+function refreshLatestPanels(sw) {
+  sw.dom.latestA.classList.toggle('is-visible', sw.running);
+  sw.dom.latestB.classList.toggle('is-visible', sw.running);
+  if (sw.running) {
+    renderLatestLane(sw, 'A', sw.dom.latestA);
+    renderLatestLane(sw, 'B', sw.dom.latestB);
+  }
 }
 
 /* ---------- Single shared render loop for all running instances ---------- */
@@ -253,7 +237,7 @@ function startStopwatch(sw) {
   sw.startEpoch = Date.now();
   setRunningUi(sw, '計測中…');
   updateLiveSplits(sw);
-  refreshAllLatestPanels();
+  refreshLatestPanels(sw);
 }
 
 function stopStopwatch(sw) {
@@ -270,7 +254,7 @@ function stopStopwatch(sw) {
   sw.dom.resetBtn.disabled = false;
   setStatus(sw, '停止しました。スタートで再開、リセットでクリアできます。');
   updateLiveSplits(sw);
-  refreshAllLatestPanels();
+  refreshLatestPanels(sw);
 }
 
 function resetStopwatch(sw) {
@@ -283,7 +267,7 @@ function resetStopwatch(sw) {
   renderRecords(sw);
   updateLiveSplits(sw);
   setStatus(sw, '');
-  refreshAllLatestPanels();
+  refreshLatestPanels(sw);
 }
 
 function pushLap(sw, track, totalMs) {
@@ -310,7 +294,7 @@ function addRecord(sw, track) {
   }
   renderRecords(sw);
   updateLiveSplits(sw);
-  refreshAllLatestPanels();
+  refreshLatestPanels(sw);
 }
 
 function setStatus(sw, msg) {

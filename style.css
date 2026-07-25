@@ -233,40 +233,18 @@ html, body {
   font-weight: 700;
 }
 
-/* Every stopwatch's latest lap for this lane, shown only while this
-   stopwatch is running. */
+/* This lane's own latest completed lap, shown only while running. */
 .latest-lane-list {
   display: none;
-  flex-direction: column;
-  gap: 3px;
   width: 100%;
-  max-height: 120px;
-  overflow-y: auto;
 }
 .latest-lane-list.is-visible {
-  display: flex;
+  display: block;
 }
 
 .latest-lane-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.latest-lane-name {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
-  font-size: 10px;
-  color: var(--lcd-ink);
-  opacity: 0.75;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
-}
-
-.latest-lane-times {
   display: flex;
+  justify-content: center;
   align-items: baseline;
   gap: 6px;
   font-family: var(--mono);
