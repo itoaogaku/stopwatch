@@ -152,16 +152,19 @@ html, body {
   text-shadow: 0 0 1px rgba(56, 63, 49, 0.35);
 }
 
+/* Slim full-width toggle on top, tall lap buttons below — keeps the
+   red Start/Stop bar as thin as possible so the lap results below
+   have as much room as possible. */
 .controls {
-  display: grid;
-  grid-template-columns: 1fr 1.8fr;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
   width: 100%;
 }
 
 .controls .sw-toggle {
-  height: 100%;
-  font-size: 17px;
+  width: 100%;
+  font-size: 16px;
 }
 
 .lap-group {
@@ -184,18 +187,17 @@ html, body {
   color: var(--lcd-ink);
 }
 
-@media (max-width: 420px) {
-  .controls {
-    grid-template-columns: 1fr;
-  }
-  .controls .sw-toggle {
-    height: auto;
-  }
-}
-
-.controls-secondary {
+/* Reset / CSV / spreadsheet always share a single row. */
+.secondary-actions {
+  display: flex;
+  width: 100%;
+  gap: 8px;
   border-top: 1px solid var(--border);
   padding-top: 12px;
+}
+.secondary-actions .btn {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .btn {
@@ -321,38 +323,48 @@ html, body {
 
 /* Dense multi-column grid so many laps are visible at a glance */
 .records-grid {
-  column-width: 150px;
+  column-width: 130px;
   column-gap: 10px;
 }
 
+/* Two lines per record (idx+lap time, then total time) instead of three
+   side-by-side columns — a single-line layout squeezed the digits down to
+   illegible/ellipsized widths once the A/B split halved the column width. */
 .record-row {
-  display: grid;
-  grid-template-columns: 28px 1fr 1fr;
-  align-items: baseline;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   padding: 6px 8px;
   border-radius: 6px;
   break-inside: avoid;
   margin-bottom: 4px;
   font-family: var(--mono);
-  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 .record-row:nth-child(odd) { background: var(--panel-2); }
 
+.record-row-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
 .record-row .idx {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: 10px;
+  flex: 0 0 auto;
 }
 
 .record-row .time-lap {
   color: var(--text);
-  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
 }
 .record-row .time-total {
   color: var(--text-dim);
-  text-align: right;
   font-size: 11px;
+  text-align: right;
 }
 
 .record-row.latest {

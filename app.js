@@ -231,8 +231,10 @@ function renderColumn(container, countEl, records, track) {
     const row = document.createElement('div');
     row.className = 'record-row' + (i === trackRecords.length - 1 ? ' latest' : '');
     row.innerHTML = `
-      <span class="idx">#${r.idx}</span>
-      <span class="time-lap">${formatTime(r.lapMs)}</span>
+      <div class="record-row-top">
+        <span class="idx">#${r.idx}</span>
+        <span class="time-lap">${formatTime(r.lapMs)}</span>
+      </div>
       <span class="time-total">${formatTime(r.totalMs)}</span>
     `;
     frag.appendChild(row);
