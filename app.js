@@ -89,6 +89,13 @@ function createStopwatch(seed) {
     setRunningUi(sw, seed?.statusMessage ?? '計測中…');
   }
 
+  sw.dom.label.addEventListener('blur', () => renameStopwatch(sw));
+  sw.dom.label.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sw.dom.label.blur();
+    }
+  });
   sw.dom.toggleBtn.addEventListener('click', () => toggleStopwatch(sw));
   sw.dom.lapABtn.addEventListener('click', () => addRecord(sw, 'A'));
   sw.dom.lapBBtn.addEventListener('click', () => addRecord(sw, 'B'));
@@ -104,6 +111,12 @@ function createStopwatch(seed) {
   renderRecords(sw);
   updateRemoveButtons();
   return sw;
+}
+
+function renameStopwatch(sw) {
+  const text = sw.dom.label.textContent.trim();
+  sw.label = text || `ストップウォッチ ${sw.number}`;
+  sw.dom.label.textContent = sw.label;
 }
 
 function duplicateStopwatch(source) {
