@@ -77,11 +77,32 @@ html, body {
 }
 
 .controls {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
   gap: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
   width: 100%;
+}
+
+.start-stop-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.start-stop-col .btn {
+  flex: 1 1 auto;
+}
+
+.btn-lap {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 420px) {
+  .controls {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .controls-secondary {
