@@ -50,11 +50,27 @@
 
         <div class="records-panel">
           <div class="records-header">
-            <h2>記録 <span class="count-badge sw-record-count">0</span></h2>
+            <h2>記録</h2>
             <div class="legend">区間タイム / 累計タイム</div>
           </div>
-          <div class="records-grid sw-records" aria-label="ラップ記録"></div>
-          <p class="empty-state sw-empty-state">スタートすると、ここにラップの記録が並びます。</p>
+          <div class="records-columns">
+            <div class="records-col">
+              <div class="records-col-head">
+                <span class="col-tag col-tag-a">A</span>
+                <span class="count-badge sw-count-a">0</span>
+              </div>
+              <div class="records-grid sw-records-a" aria-label="Aラップ記録"></div>
+              <p class="empty-state sw-empty-a">Aラップすると、ここに並びます。</p>
+            </div>
+            <div class="records-col">
+              <div class="records-col-head">
+                <span class="col-tag col-tag-b">B</span>
+                <span class="count-badge sw-count-b">0</span>
+              </div>
+              <div class="records-grid sw-records-b" aria-label="Bラップ記録"></div>
+              <p class="empty-state sw-empty-b">Bラップすると、ここに並びます。</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>

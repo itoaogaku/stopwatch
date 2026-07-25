@@ -280,15 +280,54 @@ html, body {
   gap: 6px;
 }
 
+/* A and B laps side by side, each its own dense column. */
+.records-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.records-col {
+  min-width: 0;
+}
+.records-col + .records-col {
+  border-left: 1px solid var(--border);
+  padding-left: 16px;
+}
+
+.records-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.col-tag {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 2px 9px;
+  border-radius: 5px;
+}
+.col-tag-a {
+  background: var(--lcd-bg);
+  color: var(--lcd-ink);
+}
+.col-tag-b {
+  background: var(--accent-dim);
+  color: var(--text);
+}
+
 /* Dense multi-column grid so many laps are visible at a glance */
 .records-grid {
-  column-width: 220px;
+  column-width: 150px;
   column-gap: 10px;
 }
 
 .record-row {
   display: grid;
-  grid-template-columns: 40px 1fr 1fr;
+  grid-template-columns: 28px 1fr 1fr;
   align-items: baseline;
   gap: 6px;
   padding: 6px 8px;
@@ -302,19 +341,8 @@ html, body {
 .record-row:nth-child(odd) { background: var(--panel-2); }
 
 .record-row .idx {
-  display: inline-block;
+  color: var(--text-dim);
   font-size: 11px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 4px;
-}
-.record-row .idx.track-a {
-  background: var(--lcd-bg);
-  color: var(--lcd-ink);
-}
-.record-row .idx.track-b {
-  background: var(--accent-dim);
-  color: var(--text);
 }
 
 .record-row .time-lap {

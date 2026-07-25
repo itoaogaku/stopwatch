@@ -73,9 +73,10 @@ function createStopwatch(seed) {
     saveSheetBtn: node.querySelector('.sw-save-sheet'),
     sheetBtnLabel: node.querySelector('.sheet-btn-label'),
     status: node.querySelector('.sw-status'),
-    records: node.querySelector('.sw-records'),
-    recordCount: node.querySelector('.sw-record-count'),
-    emptyState: node.querySelector('.sw-empty-state'),
+    recordsA: node.querySelector('.sw-records-a'),
+    recordsB: node.querySelector('.sw-records-b'),
+    countA: node.querySelector('.sw-count-a'),
+    countB: node.querySelector('.sw-count-b'),
   };
 
   sw.dom.label.textContent = sw.label;
@@ -219,24 +220,30 @@ function setStatus(sw, msg) {
 }
 
 /* ---------- Records rendering ---------- */
-function renderRecords(sw) {
-  sw.dom.recordCount.textContent = String(sw.records.length);
-  sw.dom.records.classList.toggle('has-records', sw.records.length > 0);
+function renderColumn(container, countEl, records, track) {
+  const trackRecords = records.filter((r) => r.track === track);
+  countEl.textContent = String(trackRecords.length);
+  container.classList.toggle('has-records', trackRecords.length > 0);
 
   const frag = document.createDocumentFragment();
-  for (let i = sw.records.length - 1; i >= 0; i--) {
-    const r = sw.records[i];
+  for (let i = trackRecords.length - 1; i >= 0; i--) {
+    const r = trackRecords[i];
     const row = document.createElement('div');
-    row.className = 'record-row' + (i === sw.records.length - 1 ? ' latest' : '');
+    row.className = 'record-row' + (i === trackRecords.length - 1 ? ' latest' : '');
     row.innerHTML = `
-      <span class="idx track-${r.track.toLowerCase()}">${r.track}${r.idx}</span>
+      <span class="idx">#${r.idx}</span>
       <span class="time-lap">${formatTime(r.lapMs)}</span>
       <span class="time-total">${formatTime(r.totalMs)}</span>
     `;
     frag.appendChild(row);
   }
-  sw.dom.records.innerHTML = '';
-  sw.dom.records.appendChild(frag);
+  container.innerHTML = '';
+  container.appendChild(frag);
+}
+
+function renderRecords(sw) {
+  renderColumn(sw.dom.recordsA, sw.dom.countA, sw.records, 'A');
+  renderColumn(sw.dom.recordsB, sw.dom.countB, sw.records, 'B');
 }
 
 /* ---------- CSV export ---------- */
