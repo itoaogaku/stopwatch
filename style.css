@@ -171,6 +171,10 @@ html, body {
 }
 
 .btn.btn-lap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 88px;
   padding: 12px 6px;
   font-size: 14px;
   font-weight: 800;
