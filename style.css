@@ -233,13 +233,10 @@ html, body {
   font-weight: 700;
 }
 
-/* This lane's own latest completed lap, shown only while running. */
+/* This lane's own latest completed lap. Stays visible (frozen) after
+   Stop; only clears when Reset wipes the records. */
 .latest-lane-list {
-  display: none;
   width: 100%;
-}
-.latest-lane-list.is-visible {
-  display: block;
 }
 
 .latest-lane-row {

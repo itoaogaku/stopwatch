@@ -190,14 +190,11 @@ function renderLatestLane(sw, track, el) {
 }
 
 // Refreshes a stopwatch's own A/B latest-lap readouts — called whenever its
-// own data changes.
+// own data changes. Stays visible after Stop (frozen at the last lap), just
+// like the main display freezes instead of clearing.
 function refreshLatestPanels(sw) {
-  sw.dom.latestA.classList.toggle('is-visible', sw.running);
-  sw.dom.latestB.classList.toggle('is-visible', sw.running);
-  if (sw.running) {
-    renderLatestLane(sw, 'A', sw.dom.latestA);
-    renderLatestLane(sw, 'B', sw.dom.latestB);
-  }
+  renderLatestLane(sw, 'A', sw.dom.latestA);
+  renderLatestLane(sw, 'B', sw.dom.latestB);
 }
 
 /* ---------- Single shared render loop for all running instances ---------- */
