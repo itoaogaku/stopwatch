@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>ストップウォッチ</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1>ストップウォッチ</h1>
+      <button id="settingsBtn" class="icon-btn" title="スプレッドシート設定" aria-label="設定">⚙</button>
+    </header>
+
+    <section class="timer-panel">
+      <div id="display" class="display">00:00.00</div>
+
+      <div class="controls">
+        <button id="startBtn" class="btn btn-primary">スタート</button>
+        <button id="splitBtn" class="btn" disabled>スプリット</button>
+        <button id="lapBtn" class="btn" disabled>ラップ</button>
+        <button id="stopBtn" class="btn btn-danger" disabled>ストップ</button>
+      </div>
+      <div class="controls controls-secondary">
+        <button id="resetBtn" class="btn btn-ghost">リセット</button>
+        <button id="exportCsvBtn" class="btn btn-ghost">CSV保存</button>
+        <button id="saveSheetBtn" class="btn btn-ghost">
+          <span id="sheetBtnLabel">スプレッドシートに保存</span>
+        </button>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="records-panel">
+      <div class="records-header">
+        <h2>記録 <span id="recordCount" class="count-badge">0</span></h2>
+        <div class="legend">
+          <span class="tag tag-split">SP</span> スプリット(累計)
+          <span class="tag tag-lap">LP</span> ラップ(区間)
+        </div>
+      </div>
+      <div id="records" class="records-grid" aria-label="スプリット・ラップ記録"></div>
+      <p id="emptyState" class="empty-state">スタートすると、ここにスプリット・ラップの記録が並びます。</p>
+    </section>
+  </div>
+
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>スプレッドシート連携設定</h2>
+        <button id="closeSettingsBtn" class="icon-btn" aria-label="閉じる">✕</button>
+      </div>
+      <div class="modal-body">
+        <label for="clientIdInput">Google OAuth クライアントID</label>
+        <input id="clientIdInput" type="text" placeholder="xxxxxxxx.apps.googleusercontent.com" />
+
+        <label for="spreadsheetIdInput">スプレッドシートID</label>
+        <input id="spreadsheetIdInput" type="text" placeholder="スプレッドシートのURL中のID部分" />
+
+        <label for="sheetNameInput">シート名</label>
+        <input id="sheetNameInput" type="text" placeholder="シート1" value="シート1" />
+
+        <p class="hint">
+          設定方法は README.md を参照してください。値はこのブラウザ内(localStorage)にのみ保存され、外部には送信されません。
+        </p>
+
+        <div id="authStatus" class="auth-status"></div>
+
+        <div class="modal-actions">
+          <button id="googleSignInBtn" class="btn">Googleでサインイン</button>
+          <button id="saveSettingsBtn" class="btn btn-primary">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,329 @@
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --panel-2: #1e222b;
+  --border: #2a2f3a;
+  --text: #e8eaed;
+  --text-dim: #9aa2b1;
+  --accent: #4f8cff;
+  --accent-dim: #23407a;
+  --danger: #ff5c5c;
+  --danger-dim: #5a1f1f;
+  --split: #4f8cff;
+  --lap: #34c98a;
+  --mono: "SF Mono", "Menlo", "Consolas", "Roboto Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+}
+
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.topbar h1 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-dim);
+}
+
+.icon-btn {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.icon-btn:hover { background: var(--panel); }
+
+.timer-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.display {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(48px, 12vw, 84px);
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.controls-secondary {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.btn {
+  flex: 1 1 auto;
+  min-width: 90px;
+  padding: 14px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.05s ease, background 0.15s ease, opacity 0.15s ease;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.btn-danger {
+  background: var(--danger-dim);
+  border-color: var(--danger);
+  color: #ffdada;
+}
+.btn-ghost {
+  background: transparent;
+  font-weight: 500;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.status {
+  min-height: 18px;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.records-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  flex: 1;
+}
+
+.records-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.records-header h2 {
+  font-size: 14px;
+  color: var(--text-dim);
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.count-badge {
+  background: var(--panel-2);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.legend {
+  font-size: 12px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #06120c;
+}
+.tag-split { background: var(--split); color: #06122a; }
+.tag-lap { background: var(--lap); color: #06180f; }
+
+/* Dense multi-column grid so many splits/laps are visible at a glance */
+.records-grid {
+  column-width: 220px;
+  column-gap: 10px;
+}
+
+.record-row {
+  display: grid;
+  grid-template-columns: 28px 26px 1fr 1fr;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  break-inside: avoid;
+  margin-bottom: 4px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.record-row:nth-child(odd) { background: var(--panel-2); }
+
+.record-row .idx {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.record-row .time-lap {
+  color: var(--text);
+  text-align: right;
+}
+.record-row .time-total {
+  color: var(--text-dim);
+  text-align: right;
+  font-size: 11px;
+}
+
+.record-row.type-split .tag { background: var(--split); }
+.record-row.type-lap .tag { background: var(--lap); }
+
+.record-row.latest {
+  outline: 1px solid var(--accent);
+}
+
+.empty-state {
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px 0;
+}
+.records-grid:not(:empty) + .empty-state,
+.records-grid.has-records + .empty-state {
+  display: none;
+}
+
+/* Modal */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 10;
+}
+.modal.hidden { display: none; }
+
+.modal-content {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-header h2 { font-size: 16px; margin: 0; }
+
+.modal-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal-body label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 10px;
+}
+
+.modal-body input {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 14px;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+.auth-status {
+  font-size: 12px;
+  color: var(--text-dim);
+  min-height: 16px;
+  margin-top: 8px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --panel-2: #f0f2f5;
+    --border: #dfe3e8;
+    --text: #1a1d23;
+    --text-dim: #6b7280;
+    --danger-dim: #ffe3e3;
+    --danger: #d9342b;
+  }
+  .btn-danger { color: #7a1f1f; }
+}
