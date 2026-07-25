@@ -235,16 +235,16 @@ html, body {
 .secondary-actions {
   display: flex;
   width: 100%;
-  gap: 8px;
+  gap: 6px;
   border-top: 1px solid var(--border);
   padding-top: 12px;
 }
 .secondary-actions .btn {
   flex: 1 1 auto;
   min-width: 0;
-  padding: 2px 8px;
-  font-size: 10px;
-  line-height: 1.4;
+  padding: 8px 4px;
+  font-size: 12px;
+  line-height: 1.3;
   white-space: nowrap;
 }
 
