@@ -52,30 +52,29 @@
         <button id="closeSettingsBtn" class="icon-btn" aria-label="閉じる">✕</button>
       </div>
       <div class="modal-body">
-        <label for="clientIdInput">Google OAuth クライアントID</label>
-        <input id="clientIdInput" type="text" placeholder="xxxxxxxx.apps.googleusercontent.com" />
+        <label for="scriptUrlInput">GAS ウェブアプリ URL</label>
+        <input id="scriptUrlInput" type="text" placeholder="https://script.google.com/macros/s/xxxx/exec" />
 
-        <label for="spreadsheetIdInput">スプレッドシートID</label>
-        <input id="spreadsheetIdInput" type="text" placeholder="スプレッドシートのURL中のID部分" />
+        <label for="secretInput">合言葉(シークレット)</label>
+        <input id="secretInput" type="text" placeholder="スクリプト側と同じ文字列" />
 
         <label for="sheetNameInput">シート名</label>
         <input id="sheetNameInput" type="text" placeholder="シート1" value="シート1" />
 
         <p class="hint">
-          設定方法は README.md を参照してください。値はこのブラウザ内(localStorage)にのみ保存され、外部には送信されません。
+          Google Apps Script をウェブアプリとして公開し、そのURLをここに設定します。手順は README.md を参照してください。値はこのブラウザ内(localStorage)にのみ保存されます。
         </p>
 
-        <div id="authStatus" class="auth-status"></div>
+        <div id="testStatus" class="auth-status"></div>
 
         <div class="modal-actions">
-          <button id="googleSignInBtn" class="btn">Googleでサインイン</button>
+          <button id="testConnectionBtn" class="btn">接続テスト</button>
           <button id="saveSettingsBtn" class="btn btn-primary">保存</button>
         </div>
       </div>
     </div>
   </div>
 
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="app.js"></script>
 </body>
 </html>

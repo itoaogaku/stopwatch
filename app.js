@@ -31,12 +31,12 @@ const el = {
   settingsBtn: document.getElementById('settingsBtn'),
   settingsModal: document.getElementById('settingsModal'),
   closeSettingsBtn: document.getElementById('closeSettingsBtn'),
-  clientIdInput: document.getElementById('clientIdInput'),
-  spreadsheetIdInput: document.getElementById('spreadsheetIdInput'),
+  scriptUrlInput: document.getElementById('scriptUrlInput'),
+  secretInput: document.getElementById('secretInput'),
   sheetNameInput: document.getElementById('sheetNameInput'),
   saveSettingsBtn: document.getElementById('saveSettingsBtn'),
-  googleSignInBtn: document.getElementById('googleSignInBtn'),
-  authStatus: document.getElementById('authStatus'),
+  testConnectionBtn: document.getElementById('testConnectionBtn'),
+  testStatus: document.getElementById('testStatus'),
 };
 
 /* ---------- Time formatting ---------- */
@@ -176,87 +176,49 @@ function exportCsv() {
   URL.revokeObjectURL(url);
 }
 
-/* ---------- Google Sheets integration ---------- */
+/* ---------- Google Apps Script (GAS) webhook integration ---------- */
 const sheets = {
-  clientId: localStorage.getItem('sw_clientId') || '',
-  spreadsheetId: localStorage.getItem('sw_spreadsheetId') || '',
+  scriptUrl: localStorage.getItem('sw_scriptUrl') || '',
+  secret: localStorage.getItem('sw_secret') || '',
   sheetName: localStorage.getItem('sw_sheetName') || 'シート1',
-  accessToken: '',
-  tokenClient: null,
-  headerEnsured: false,
 };
 
-function initGoogleTokenClient() {
-  if (!window.google || !sheets.clientId) return;
-  sheets.tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: sheets.clientId,
-    scope: 'https://www.googleapis.com/auth/spreadsheets',
-    callback: (resp) => {
-      if (resp.error) {
-        el.authStatus.textContent = `サインインエラー: ${resp.error}`;
-        return;
-      }
-      sheets.accessToken = resp.access_token;
-      el.authStatus.textContent = 'サインイン済みです。';
-    },
+// Sent as text/plain to avoid a CORS preflight request against the Apps Script endpoint.
+async function postToScript(payload) {
+  const res = await fetch(sheets.scriptUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
   });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || `unexpected response (${res.status})`);
+  return data;
 }
 
-function signIn() {
-  if (!sheets.clientId) {
-    el.authStatus.textContent = '先にクライアントIDを入力して保存してください。';
+async function testConnection() {
+  const scriptUrl = el.scriptUrlInput.value.trim();
+  if (!scriptUrl) {
+    el.testStatus.textContent = 'ウェブアプリURLを入力してください。';
     return;
   }
-  if (!sheets.tokenClient) initGoogleTokenClient();
-  if (!sheets.tokenClient) {
-    el.authStatus.textContent = 'Google認証ライブラリの読み込み待ちです。少し待って再試行してください。';
-    return;
-  }
-  sheets.tokenClient.requestAccessToken({ prompt: sheets.accessToken ? '' : 'consent' });
-}
+  sheets.scriptUrl = scriptUrl;
+  sheets.secret = el.secretInput.value.trim();
+  sheets.sheetName = el.sheetNameInput.value.trim() || 'シート1';
 
-async function sheetsApiFetch(path, options = {}) {
-  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheets.spreadsheetId}${path}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${sheets.accessToken}`,
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Sheets API error ${res.status}: ${body}`);
+  el.testStatus.textContent = '接続確認中…';
+  try {
+    const data = await postToScript({ secret: sheets.secret, sheetName: sheets.sheetName, rows: [] });
+    el.testStatus.textContent = `接続できました(現在の行数: ${data.rowCount ?? '不明'})。`;
+  } catch (err) {
+    console.error(err);
+    el.testStatus.textContent = `接続に失敗しました: ${err.message}`;
   }
-  return res.json();
-}
-
-async function ensureHeaderRow() {
-  if (sheets.headerEnsured) return;
-  const range = encodeURIComponent(`${sheets.sheetName}!A1:E1`);
-  const data = await sheetsApiFetch(`/values/${range}`);
-  if (!data.values || data.values.length === 0) {
-    await sheetsApiFetch(`/values/${range}?valueInputOption=USER_ENTERED`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        range: `${sheets.sheetName}!A1:E1`,
-        majorDimension: 'ROWS',
-        values: [['No', '種別', '記録日時', '区間タイム', '合計タイム']],
-      }),
-    });
-  }
-  sheets.headerEnsured = true;
 }
 
 async function saveToSheet() {
-  if (!sheets.spreadsheetId || !sheets.clientId) {
+  if (!sheets.scriptUrl) {
     openSettings();
-    setStatus('スプレッドシートの設定を入力してください。');
-    return;
-  }
-  if (!sheets.accessToken) {
-    openSettings();
-    setStatus('先にGoogleでサインインしてください。');
+    setStatus('ウェブアプリURLを設定してください。');
     return;
   }
   const pending = state.records.slice(state.savedCount);
@@ -268,24 +230,19 @@ async function saveToSheet() {
   el.saveSheetBtn.disabled = true;
   el.sheetBtnLabel.textContent = '保存中…';
   try {
-    await ensureHeaderRow();
-    const values = pending.map((r) => [
+    const rows = pending.map((r) => [
       r.idx,
       r.type === 'split' ? 'スプリット' : 'ラップ',
       r.wallClock,
       formatTime(r.segmentMs),
       formatTime(r.totalMs),
     ]);
-    const range = encodeURIComponent(`${sheets.sheetName}!A1`);
-    await sheetsApiFetch(`/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
-      method: 'POST',
-      body: JSON.stringify({ range: `${sheets.sheetName}!A1`, majorDimension: 'ROWS', values }),
-    });
+    await postToScript({ secret: sheets.secret, sheetName: sheets.sheetName, rows });
     state.savedCount = state.records.length;
     setStatus(`${pending.length}件をスプレッドシートに保存しました。`);
   } catch (err) {
     console.error(err);
-    setStatus('スプレッドシートへの保存に失敗しました。設定・サインイン状態を確認してください。');
+    setStatus(`スプレッドシートへの保存に失敗しました: ${err.message}`);
   } finally {
     el.saveSheetBtn.disabled = false;
     el.sheetBtnLabel.textContent = 'スプレッドシートに保存';
@@ -294,10 +251,10 @@ async function saveToSheet() {
 
 /* ---------- Settings modal ---------- */
 function openSettings() {
-  el.clientIdInput.value = sheets.clientId;
-  el.spreadsheetIdInput.value = sheets.spreadsheetId;
+  el.scriptUrlInput.value = sheets.scriptUrl;
+  el.secretInput.value = sheets.secret;
   el.sheetNameInput.value = sheets.sheetName;
-  el.authStatus.textContent = sheets.accessToken ? 'サインイン済みです。' : '';
+  el.testStatus.textContent = '';
   el.settingsModal.classList.remove('hidden');
 }
 
@@ -306,17 +263,13 @@ function closeSettings() {
 }
 
 function saveSettings() {
-  sheets.clientId = el.clientIdInput.value.trim();
-  sheets.spreadsheetId = el.spreadsheetIdInput.value.trim();
+  sheets.scriptUrl = el.scriptUrlInput.value.trim();
+  sheets.secret = el.secretInput.value.trim();
   sheets.sheetName = el.sheetNameInput.value.trim() || 'シート1';
-  localStorage.setItem('sw_clientId', sheets.clientId);
-  localStorage.setItem('sw_spreadsheetId', sheets.spreadsheetId);
+  localStorage.setItem('sw_scriptUrl', sheets.scriptUrl);
+  localStorage.setItem('sw_secret', sheets.secret);
   localStorage.setItem('sw_sheetName', sheets.sheetName);
-  sheets.headerEnsured = false;
-  sheets.tokenClient = null;
-  sheets.accessToken = '';
-  initGoogleTokenClient();
-  el.authStatus.textContent = '設定を保存しました。サインインしてください。';
+  el.testStatus.textContent = '設定を保存しました。';
 }
 
 /* ---------- Wire up events ---------- */
@@ -336,21 +289,8 @@ el.settingsModal.addEventListener('click', (e) => {
 el.saveSettingsBtn.addEventListener('click', () => {
   saveSettings();
 });
-el.googleSignInBtn.addEventListener('click', signIn);
+el.testConnectionBtn.addEventListener('click', testConnection);
 
 window.addEventListener('load', () => {
   el.display.textContent = formatTime(0);
-  if (sheets.clientId) {
-    // google script loads async; retry a few times
-    let attempts = 0;
-    const tryInit = () => {
-      attempts += 1;
-      if (window.google && window.google.accounts) {
-        initGoogleTokenClient();
-      } else if (attempts < 20) {
-        setTimeout(tryInit, 250);
-      }
-    };
-    tryInit();
-  }
 });
