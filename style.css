@@ -193,13 +193,24 @@ html, body {
   text-shadow: 0 0 1px rgba(56, 63, 49, 0.35);
 }
 
-.split-readout {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
+/* A and B live splits side by side, each with that lane's latest
+   completed record (across every stopwatch) stacked directly beneath
+   it — all inside the same LCD glass as the main clock. */
+.split-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
   width: 100%;
   padding-top: 6px;
   border-top: 1px solid rgba(56, 63, 49, 0.25);
+}
+
+.split-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .split-item {
@@ -222,85 +233,55 @@ html, body {
   font-weight: 700;
 }
 
-/* Every stopwatch's most recent lap, shown under this one's clock only
-   while it's running. */
-.latest-all {
+/* Every stopwatch's latest lap for this lane, shown only while this
+   stopwatch is running. */
+.latest-lane-list {
   display: none;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
   width: 100%;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 12px;
-}
-.latest-all.is-visible {
-  display: flex;
-}
-
-.latest-all-title {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-.latest-all-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 160px;
+  max-height: 120px;
   overflow-y: auto;
 }
-
-.latest-all-row {
-  display: grid;
-  grid-template-columns: 1fr 22px auto auto;
-  align-items: center;
-  gap: 8px;
+.latest-lane-list.is-visible {
+  display: flex;
 }
 
-.latest-all-name {
-  font-size: 11px;
-  color: var(--text);
+.latest-lane-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.latest-lane-name {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  font-size: 10px;
+  color: var(--lcd-ink);
+  opacity: 0.75;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
 }
 
-.latest-all-tag {
+.latest-lane-times {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 800;
-  text-align: center;
-  border-radius: 4px;
-  padding: 1px 0;
+  font-variant-numeric: tabular-nums;
 }
-.latest-all-tag.track-a {
-  background: var(--lcd-bg);
+
+.latest-lane-lap {
+  font-size: 12px;
+  font-weight: 700;
   color: var(--lcd-ink);
 }
-.latest-all-tag.track-b {
-  background: var(--accent-dim);
-  color: var(--text);
-}
 
-.latest-all-lap {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text);
-  text-align: right;
-}
-
-.latest-all-total {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 11px;
-  color: var(--text-dim);
-  text-align: right;
+.latest-lane-total {
+  font-size: 10px;
+  color: var(--lcd-ink-dim);
 }
 
 .split-item-a,

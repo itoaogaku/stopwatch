@@ -72,8 +72,8 @@ function createStopwatch(seed) {
     recordsB: node.querySelector('.sw-records-b'),
     countA: node.querySelector('.sw-count-a'),
     countB: node.querySelector('.sw-count-b'),
-    latestAll: node.querySelector('.sw-latest-all'),
-    latestAllList: node.querySelector('.sw-latest-all-list'),
+    latestA: node.querySelector('.sw-latest-a'),
+    latestB: node.querySelector('.sw-latest-b'),
   };
 
   if (sw.parentId) node.classList.add('is-child');
@@ -171,40 +171,48 @@ function updateLiveSplits(sw) {
   sw.dom.liveB.textContent = formatTime(totalMs - sw.lastLapMs.B);
 }
 
-/* ---------- "Every stopwatch's latest lap", shown under a running clock ---------- */
+/* ---------- "Every stopwatch's latest lap", shown per-lane under a running clock ---------- */
 function escapeHtml(str) {
   return str.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function latestRecordOf(sw) {
-  return sw.records.length ? sw.records[sw.records.length - 1] : null;
+function latestRecordForTrack(sw, track) {
+  for (let i = sw.records.length - 1; i >= 0; i--) {
+    if (sw.records[i].track === track) return sw.records[i];
+  }
+  return null;
 }
 
-function renderLatestAllPanel(sw) {
+function renderLatestLanePanel(track, listEl) {
   const rows = stopwatchesInDisplayOrder()
-    .map((other) => ({ other, record: latestRecordOf(other) }))
+    .map((other) => ({ other, record: latestRecordForTrack(other, track) }))
     .filter(({ record }) => record);
 
-  sw.dom.latestAllList.innerHTML = rows
+  listEl.innerHTML = rows
     .map(
       ({ other, record: r }) => `
-      <div class="latest-all-row">
-        <span class="latest-all-name">${escapeHtml(other.label)}</span>
-        <span class="latest-all-tag track-${r.track.toLowerCase()}">${r.track}</span>
-        <span class="latest-all-lap">${formatTime(r.lapMs)}</span>
-        <span class="latest-all-total">${formatTime(r.totalMs)}</span>
+      <div class="latest-lane-row">
+        <span class="latest-lane-name">${escapeHtml(other.label)}</span>
+        <span class="latest-lane-times">
+          <span class="latest-lane-lap">${formatTime(r.lapMs)}</span>
+          <span class="latest-lane-total">${formatTime(r.totalMs)}</span>
+        </span>
       </div>
     `
     )
     .join('');
 }
 
-// Refreshes every running stopwatch's "latest across all" panel — called
-// whenever any stopwatch's data changes, since that can affect all of them.
+// Refreshes every running stopwatch's per-lane "latest across all" lists —
+// called whenever any stopwatch's data changes, since that can affect all of them.
 function refreshAllLatestPanels() {
   stopwatches.forEach((sw) => {
-    sw.dom.latestAll.classList.toggle('is-visible', sw.running);
-    if (sw.running) renderLatestAllPanel(sw);
+    sw.dom.latestA.classList.toggle('is-visible', sw.running);
+    sw.dom.latestB.classList.toggle('is-visible', sw.running);
+    if (sw.running) {
+      renderLatestLanePanel('A', sw.dom.latestA);
+      renderLatestLanePanel('B', sw.dom.latestB);
+    }
   });
 }
 
