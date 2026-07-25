@@ -183,16 +183,19 @@ function latestRecordForTrack(sw, track) {
   return null;
 }
 
+// Always renders both lines (using a dashed placeholder before the first
+// lap) so the LCD panel is already at its final size from the start,
+// instead of growing the moment a lap first appears.
 function renderLatestLane(sw, track, el) {
   const r = latestRecordForTrack(sw, track);
-  el.innerHTML = r
-    ? `
-      <div class="latest-lane-row">
-        <span class="latest-lane-lap">${formatTime(r.lapMs)}</span>
-        <span class="latest-lane-total">${formatTime(r.totalMs)}</span>
-      </div>
-    `
-    : '';
+  const lap = r ? formatTime(r.lapMs) : '--:--.--';
+  const total = r ? formatTime(r.totalMs) : '--:--.--';
+  el.innerHTML = `
+    <div class="latest-lane-row${r ? '' : ' is-placeholder'}">
+      <span class="latest-lane-lap">${lap}</span>
+      <span class="latest-lane-total">${total}</span>
+    </div>
+  `;
 }
 
 // Refreshes a stopwatch's own A/B latest-lap readouts — called whenever its

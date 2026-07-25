@@ -247,6 +247,9 @@ html, body {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
 }
+.latest-lane-row.is-placeholder {
+  opacity: 0.4;
+}
 
 .latest-lane-lap {
   font-size: 19px;
