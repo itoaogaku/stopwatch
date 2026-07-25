@@ -49,7 +49,7 @@ function createStopwatch(seed) {
     records: seed?.records ? seed.records.map((r) => ({ ...r })) : [],
     lastLapMs: seed?.lastLapMs ? { ...seed.lastLapMs } : { A: 0, B: 0 },
     lapCount: seed?.lapCount ? { ...seed.lapCount } : { A: 0, B: 0 },
-    expanded: { A: false, B: false },
+    expanded: false,
   };
 
   const node = el.template.content.firstElementChild.cloneNode(true);
@@ -73,8 +73,7 @@ function createStopwatch(seed) {
     recordsB: node.querySelector('.sw-records-b'),
     countA: node.querySelector('.sw-count-a'),
     countB: node.querySelector('.sw-count-b'),
-    moreA: node.querySelector('.sw-more-a'),
-    moreB: node.querySelector('.sw-more-b'),
+    moreBtn: node.querySelector('.sw-more'),
     latestA: node.querySelector('.sw-latest-a'),
     latestB: node.querySelector('.sw-latest-b'),
   };
@@ -104,12 +103,8 @@ function createStopwatch(seed) {
   sw.dom.exportCsvBtn.addEventListener('click', () => exportCsv(sw));
   sw.dom.duplicateBtn.addEventListener('click', () => duplicateStopwatch(sw));
   sw.dom.removeBtn.addEventListener('click', () => removeStopwatch(sw));
-  sw.dom.moreA.addEventListener('click', () => {
-    sw.expanded.A = !sw.expanded.A;
-    renderRecords(sw);
-  });
-  sw.dom.moreB.addEventListener('click', () => {
-    sw.expanded.B = !sw.expanded.B;
+  sw.dom.moreBtn.addEventListener('click', () => {
+    sw.expanded = !sw.expanded;
     renderRecords(sw);
   });
 
@@ -271,7 +266,7 @@ function resetStopwatch(sw) {
   sw.records = [];
   sw.lastLapMs = { A: 0, B: 0 };
   sw.lapCount = { A: 0, B: 0 };
-  sw.expanded = { A: false, B: false };
+  sw.expanded = false;
   sw.dom.display.textContent = formatTime(0);
   renderRecords(sw);
   updateLiveSplits(sw);
@@ -311,14 +306,15 @@ function setStatus(sw, msg) {
 }
 
 /* ---------- Records rendering ---------- */
-const VISIBLE_RECORD_COUNT = 5;
+const VISIBLE_RECORD_COUNT = 4;
 
-function renderColumn(container, countEl, moreBtn, records, track, expanded) {
+// Returns how many of this lane's records are hidden beyond the visible cap.
+function renderColumn(container, countEl, records, track, expanded) {
   const trackRecords = records.filter((r) => r.track === track);
   countEl.textContent = String(trackRecords.length);
 
-  const hiddenCount = trackRecords.length - VISIBLE_RECORD_COUNT;
-  const visibleCount = expanded || hiddenCount <= 0 ? trackRecords.length : VISIBLE_RECORD_COUNT;
+  const hiddenCount = Math.max(0, trackRecords.length - VISIBLE_RECORD_COUNT);
+  const visibleCount = expanded ? trackRecords.length : trackRecords.length - hiddenCount;
 
   const frag = document.createDocumentFragment();
   for (let i = trackRecords.length - 1; i >= trackRecords.length - visibleCount; i--) {
@@ -337,17 +333,21 @@ function renderColumn(container, countEl, moreBtn, records, track, expanded) {
   container.innerHTML = '';
   container.appendChild(frag);
 
-  if (hiddenCount > 0) {
-    moreBtn.hidden = false;
-    moreBtn.textContent = expanded ? '折りたたむ' : `もっと見る(${hiddenCount}件)`;
-  } else {
-    moreBtn.hidden = true;
-  }
+  return hiddenCount;
 }
 
+// One shared "もっと見る" button expands/collapses both A and B together.
 function renderRecords(sw) {
-  renderColumn(sw.dom.recordsA, sw.dom.countA, sw.dom.moreA, sw.records, 'A', sw.expanded.A);
-  renderColumn(sw.dom.recordsB, sw.dom.countB, sw.dom.moreB, sw.records, 'B', sw.expanded.B);
+  const hiddenA = renderColumn(sw.dom.recordsA, sw.dom.countA, sw.records, 'A', sw.expanded);
+  const hiddenB = renderColumn(sw.dom.recordsB, sw.dom.countB, sw.records, 'B', sw.expanded);
+  const hiddenTotal = hiddenA + hiddenB;
+
+  if (hiddenTotal > 0) {
+    sw.dom.moreBtn.hidden = false;
+    sw.dom.moreBtn.textContent = sw.expanded ? '折りたたむ' : `もっと見る(${hiddenTotal}件)`;
+  } else {
+    sw.dom.moreBtn.hidden = true;
+  }
 }
 
 /* ---------- CSV export ---------- */
