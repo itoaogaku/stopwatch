@@ -6,8 +6,7 @@ const state = {
   startEpoch: 0,      // Date.now() at (re)start, minus already-elapsed time
   elapsedMs: 0,        // frozen elapsed time while paused
   rafId: null,
-  records: [],          // { idx, type: 'split'|'lap', segmentMs, totalMs, wallClock }
-  lastSplitMs: 0,
+  records: [],          // { idx, lapMs, totalMs, wallClock }
   lastLapMs: 0,
   savedCount: 0,        // how many records already pushed to the spreadsheet
 };
@@ -16,7 +15,6 @@ const state = {
 const el = {
   display: document.getElementById('display'),
   startBtn: document.getElementById('startBtn'),
-  splitBtn: document.getElementById('splitBtn'),
   lapBtn: document.getElementById('lapBtn'),
   stopBtn: document.getElementById('stopBtn'),
   resetBtn: document.getElementById('resetBtn'),
@@ -72,7 +70,6 @@ function start() {
   state.running = true;
   state.startEpoch = Date.now();
   el.startBtn.disabled = true;
-  el.splitBtn.disabled = false;
   el.lapBtn.disabled = false;
   el.stopBtn.disabled = false;
   el.resetBtn.disabled = true;
@@ -87,7 +84,6 @@ function stop() {
   cancelAnimationFrame(state.rafId);
   el.display.textContent = formatTime(state.elapsedMs);
   el.startBtn.disabled = false;
-  el.splitBtn.disabled = true;
   el.lapBtn.disabled = true;
   el.stopBtn.disabled = true;
   el.resetBtn.disabled = false;
@@ -98,7 +94,6 @@ function reset() {
   if (state.running) return;
   state.elapsedMs = 0;
   state.records = [];
-  state.lastSplitMs = 0;
   state.lastLapMs = 0;
   state.savedCount = 0;
   el.display.textContent = formatTime(0);
@@ -106,17 +101,15 @@ function reset() {
   setStatus('');
 }
 
-function addRecord(type) {
+function addRecord() {
   if (!state.running) return;
   const totalMs = currentElapsedMs();
-  const segmentMs = type === 'split' ? totalMs - state.lastSplitMs : totalMs - state.lastLapMs;
-  if (type === 'split') state.lastSplitMs = totalMs;
-  else state.lastLapMs = totalMs;
+  const lapMs = totalMs - state.lastLapMs;
+  state.lastLapMs = totalMs;
 
   const record = {
     idx: state.records.length + 1,
-    type,
-    segmentMs,
+    lapMs,
     totalMs,
     wallClock: new Date().toISOString(),
   };
@@ -137,11 +130,10 @@ function renderRecords() {
   for (let i = state.records.length - 1; i >= 0; i--) {
     const r = state.records[i];
     const row = document.createElement('div');
-    row.className = `record-row type-${r.type}` + (i === state.records.length - 1 ? ' latest' : '');
+    row.className = 'record-row' + (i === state.records.length - 1 ? ' latest' : '');
     row.innerHTML = `
       <span class="idx">#${r.idx}</span>
-      <span class="tag ${r.type === 'split' ? 'tag-split' : 'tag-lap'}">${r.type === 'split' ? 'SP' : 'LP'}</span>
-      <span class="time-lap">${formatTime(r.segmentMs)}</span>
+      <span class="time-lap">${formatTime(r.lapMs)}</span>
       <span class="time-total">${formatTime(r.totalMs)}</span>
     `;
     frag.appendChild(row);
@@ -156,12 +148,11 @@ function exportCsv() {
     setStatus('記録がありません。');
     return;
   }
-  const header = ['No', '種別', '記録日時', '区間タイム', '合計タイム'];
+  const header = ['No', '記録日時', '区間タイム', '合計タイム'];
   const rows = state.records.map((r) => [
     r.idx,
-    r.type === 'split' ? 'スプリット' : 'ラップ',
     r.wallClock,
-    formatTime(r.segmentMs),
+    formatTime(r.lapMs),
     formatTime(r.totalMs),
   ]);
   const csv = [header, ...rows]
@@ -232,9 +223,8 @@ async function saveToSheet() {
   try {
     const rows = pending.map((r) => [
       r.idx,
-      r.type === 'split' ? 'スプリット' : 'ラップ',
       r.wallClock,
-      formatTime(r.segmentMs),
+      formatTime(r.lapMs),
       formatTime(r.totalMs),
     ]);
     await postToScript({ secret: sheets.secret, sheetName: sheets.sheetName, rows });
@@ -275,8 +265,7 @@ function saveSettings() {
 /* ---------- Wire up events ---------- */
 el.startBtn.addEventListener('click', start);
 el.stopBtn.addEventListener('click', stop);
-el.splitBtn.addEventListener('click', () => addRecord('split'));
-el.lapBtn.addEventListener('click', () => addRecord('lap'));
+el.lapBtn.addEventListener('click', addRecord);
 el.resetBtn.addEventListener('click', reset);
 el.exportCsvBtn.addEventListener('click', exportCsv);
 el.saveSheetBtn.addEventListener('click', saveToSheet);

@@ -9,8 +9,6 @@
   --accent-dim: #23407a;
   --danger: #ff5c5c;
   --danger-dim: #5a1f1f;
-  --split: #4f8cff;
-  --lap: #34c98a;
   --mono: "SF Mono", "Menlo", "Consolas", "Roboto Mono", monospace;
 }
 
@@ -174,19 +172,7 @@ html, body {
   gap: 6px;
 }
 
-.tag {
-  display: inline-block;
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 4px;
-  color: #06120c;
-}
-.tag-split { background: var(--split); color: #06122a; }
-.tag-lap { background: var(--lap); color: #06180f; }
-
-/* Dense multi-column grid so many splits/laps are visible at a glance */
+/* Dense multi-column grid so many laps are visible at a glance */
 .records-grid {
   column-width: 220px;
   column-gap: 10px;
@@ -194,7 +180,7 @@ html, body {
 
 .record-row {
   display: grid;
-  grid-template-columns: 28px 26px 1fr 1fr;
+  grid-template-columns: 32px 1fr 1fr;
   align-items: baseline;
   gap: 6px;
   padding: 6px 8px;
@@ -221,9 +207,6 @@ html, body {
   text-align: right;
   font-size: 11px;
 }
-
-.record-row.type-split .tag { background: var(--split); }
-.record-row.type-lap .tag { background: var(--lap); }
 
 .record-row.latest {
   outline: 1px solid var(--accent);

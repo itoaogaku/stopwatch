@@ -18,7 +18,6 @@
 
       <div class="controls">
         <button id="startBtn" class="btn btn-primary">スタート</button>
-        <button id="splitBtn" class="btn" disabled>スプリット</button>
         <button id="lapBtn" class="btn" disabled>ラップ</button>
         <button id="stopBtn" class="btn btn-danger" disabled>ストップ</button>
       </div>
@@ -35,13 +34,10 @@
     <section class="records-panel">
       <div class="records-header">
         <h2>記録 <span id="recordCount" class="count-badge">0</span></h2>
-        <div class="legend">
-          <span class="tag tag-split">SP</span> スプリット(累計)
-          <span class="tag tag-lap">LP</span> ラップ(区間)
-        </div>
+        <div class="legend">区間タイム / 累計タイム</div>
       </div>
-      <div id="records" class="records-grid" aria-label="スプリット・ラップ記録"></div>
-      <p id="emptyState" class="empty-state">スタートすると、ここにスプリット・ラップの記録が並びます。</p>
+      <div id="records" class="records-grid" aria-label="ラップ記録"></div>
+      <p id="emptyState" class="empty-state">スタートすると、ここにラップの記録が並びます。</p>
     </section>
   </div>
 
