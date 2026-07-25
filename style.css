@@ -19,6 +19,14 @@
   --lcd-ink: #383f31;
   --lcd-ink-dim: #6b7263;
   --mono: "SF Mono", "Menlo", "Consolas", "Roboto Mono", monospace;
+
+  /* A stopwatch duplicated while running becomes a navy "child" case,
+     grouped under its parent, so it reads as clearly related but distinct. */
+  --child-accent: #3a5aa8;
+  --child-accent-dim: #16213f;
+  --child-panel: #1b2440;
+  --child-panel-2: #242f52;
+  --child-border: #3a4570;
 }
 
 * { box-sizing: border-box; }
@@ -60,15 +68,38 @@ html, body {
   gap: 16px;
 }
 
+/* One parent stopwatch plus any children duplicated from it while running. */
+.family-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.family-group + .family-group {
+  margin-top: 12px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+
 .stopwatch-card {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
-.stopwatch-card + .stopwatch-card {
-  margin-top: 12px;
-  padding-top: 28px;
-  border-top: 1px solid var(--border);
+
+/* Children get their own navy palette (scoped via custom property
+   overrides, so every descendant that reads var(--accent)/var(--panel)/etc.
+   picks it up automatically) plus an indent to read as nested under
+   their parent. */
+.stopwatch-card.is-child {
+  --accent: var(--child-accent);
+  --accent-dim: var(--child-accent-dim);
+  --danger: var(--child-accent);
+  --panel: var(--child-panel);
+  --panel-2: var(--child-panel-2);
+  --border: var(--child-border);
+  margin-left: 22px;
+  padding-left: 16px;
+  border-left: 2px solid var(--accent);
 }
 
 .sw-header {

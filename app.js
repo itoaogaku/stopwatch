@@ -27,9 +27,12 @@ function currentElapsedMs(sw) {
 
 /* ---------- Stopwatch instances ---------- */
 const stopwatches = new Map(); // id -> stopwatch instance
+const familyGroups = new Map(); // root parent id -> wrapping DOM element for that parent + its children
 let nextStopwatchNumber = 1;
 
 // seed lets a duplicate start already running, at the source's current elapsed time.
+// seed.parentId, if set, makes this a child grouped under that root parent instead
+// of a new independent parent.
 function createStopwatch(seed) {
   const id = `sw-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const number = nextStopwatchNumber++;
@@ -38,6 +41,7 @@ function createStopwatch(seed) {
     id,
     number,
     label: `ストップウォッチ ${number}`,
+    parentId: seed?.parentId ?? null,
     running: seed?.running ?? false,
     startEpoch: Date.now(),
     elapsedMs: seed?.elapsedMs ?? 0,
@@ -68,6 +72,8 @@ function createStopwatch(seed) {
     countB: node.querySelector('.sw-count-b'),
   };
 
+  if (sw.parentId) node.classList.add('is-child');
+
   sw.dom.label.textContent = sw.label;
   sw.dom.display.textContent = formatTime(currentElapsedMs(sw));
   updateLiveSplits(sw);
@@ -92,7 +98,16 @@ function createStopwatch(seed) {
   sw.dom.duplicateBtn.addEventListener('click', () => duplicateStopwatch(sw));
   sw.dom.removeBtn.addEventListener('click', () => removeStopwatch(sw));
 
-  el.stopwatchList.appendChild(node);
+  const rootId = sw.parentId ?? sw.id;
+  let group = familyGroups.get(rootId);
+  if (!group) {
+    group = document.createElement('div');
+    group.className = 'family-group';
+    el.stopwatchList.appendChild(group);
+    familyGroups.set(rootId, group);
+  }
+  group.appendChild(node);
+
   stopwatches.set(id, sw);
   renderRecords(sw);
   updateRemoveButtons();
@@ -105,13 +120,18 @@ function renameStopwatch(sw) {
   sw.dom.label.textContent = sw.label;
 }
 
+// Duplicating a stopped stopwatch starts a new independent parent.
+// Duplicating a running one creates a child grouped under that stopwatch's
+// root parent (or under itself, if it's already a parent).
 function duplicateStopwatch(source) {
+  const parentId = source.running ? (source.parentId ?? source.id) : null;
   const clone = createStopwatch({
     running: source.running,
     elapsedMs: currentElapsedMs(source),
     records: source.records,
     lastLapMs: source.lastLapMs,
     lapCount: source.lapCount,
+    parentId,
     statusMessage: source.running ? `${source.label} の計測中の状態を引き継ぎました。` : '',
   });
   return clone;
@@ -119,8 +139,14 @@ function duplicateStopwatch(source) {
 
 function removeStopwatch(sw) {
   if (stopwatches.size <= 1) return;
+  const rootId = sw.parentId ?? sw.id;
+  const group = familyGroups.get(rootId);
   sw.dom.root.remove();
   stopwatches.delete(sw.id);
+  if (group && group.children.length === 0) {
+    group.remove();
+    familyGroups.delete(rootId);
+  }
   updateRemoveButtons();
 }
 
