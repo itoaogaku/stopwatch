@@ -52,7 +52,8 @@ function createStopwatch(seed) {
     startEpoch: Date.now(),
     elapsedMs: seed?.elapsedMs ?? 0,
     records: [],
-    lastLapMs: 0,
+    lastLapMs: { A: 0, B: 0 },
+    lapCount: { A: 0, B: 0 },
     savedCount: 0,
   };
 
@@ -63,9 +64,10 @@ function createStopwatch(seed) {
     duplicateBtn: node.querySelector('.sw-duplicate'),
     removeBtn: node.querySelector('.sw-remove'),
     display: node.querySelector('.display'),
-    startBtn: node.querySelector('.sw-start'),
-    lapBtn: node.querySelector('.sw-lap'),
-    stopBtn: node.querySelector('.sw-stop'),
+    toggleBtn: node.querySelector('.sw-toggle'),
+    lapABtn: node.querySelector('.sw-lap-a'),
+    lapBBtn: node.querySelector('.sw-lap-b'),
+    lapBothBtn: node.querySelector('.sw-lap-both'),
     resetBtn: node.querySelector('.sw-reset'),
     exportCsvBtn: node.querySelector('.sw-export-csv'),
     saveSheetBtn: node.querySelector('.sw-save-sheet'),
@@ -80,16 +82,13 @@ function createStopwatch(seed) {
   sw.dom.display.textContent = formatTime(currentElapsedMs(sw));
 
   if (sw.running) {
-    sw.dom.startBtn.disabled = true;
-    sw.dom.lapBtn.disabled = false;
-    sw.dom.stopBtn.disabled = false;
-    sw.dom.resetBtn.disabled = true;
-    setStatus(sw, seed?.statusMessage ?? '計測中…');
+    setRunningUi(sw, seed?.statusMessage ?? '計測中…');
   }
 
-  sw.dom.startBtn.addEventListener('click', () => startStopwatch(sw));
-  sw.dom.stopBtn.addEventListener('click', () => stopStopwatch(sw));
-  sw.dom.lapBtn.addEventListener('click', () => addRecord(sw));
+  sw.dom.toggleBtn.addEventListener('click', () => toggleStopwatch(sw));
+  sw.dom.lapABtn.addEventListener('click', () => addRecord(sw, 'A'));
+  sw.dom.lapBBtn.addEventListener('click', () => addRecord(sw, 'B'));
+  sw.dom.lapBothBtn.addEventListener('click', () => addRecord(sw, 'both'));
   sw.dom.resetBtn.addEventListener('click', () => resetStopwatch(sw));
   sw.dom.exportCsvBtn.addEventListener('click', () => exportCsv(sw));
   sw.dom.saveSheetBtn.addEventListener('click', () => saveToSheet(sw));
@@ -137,15 +136,30 @@ function tickAll() {
 }
 
 /* ---------- Controls ---------- */
+function toggleStopwatch(sw) {
+  if (sw.running) {
+    stopStopwatch(sw);
+  } else {
+    startStopwatch(sw);
+  }
+}
+
+function setRunningUi(sw, statusMessage) {
+  sw.dom.toggleBtn.textContent = 'ストップ';
+  sw.dom.toggleBtn.classList.remove('btn-primary');
+  sw.dom.toggleBtn.classList.add('btn-danger');
+  sw.dom.lapABtn.disabled = false;
+  sw.dom.lapBBtn.disabled = false;
+  sw.dom.lapBothBtn.disabled = false;
+  sw.dom.resetBtn.disabled = true;
+  setStatus(sw, statusMessage);
+}
+
 function startStopwatch(sw) {
   if (sw.running) return;
   sw.running = true;
   sw.startEpoch = Date.now();
-  sw.dom.startBtn.disabled = true;
-  sw.dom.lapBtn.disabled = false;
-  sw.dom.stopBtn.disabled = false;
-  sw.dom.resetBtn.disabled = true;
-  setStatus(sw, '計測中…');
+  setRunningUi(sw, '計測中…');
 }
 
 function stopStopwatch(sw) {
@@ -153,9 +167,12 @@ function stopStopwatch(sw) {
   sw.elapsedMs = currentElapsedMs(sw);
   sw.running = false;
   sw.dom.display.textContent = formatTime(sw.elapsedMs);
-  sw.dom.startBtn.disabled = false;
-  sw.dom.lapBtn.disabled = true;
-  sw.dom.stopBtn.disabled = true;
+  sw.dom.toggleBtn.textContent = 'スタート';
+  sw.dom.toggleBtn.classList.remove('btn-danger');
+  sw.dom.toggleBtn.classList.add('btn-primary');
+  sw.dom.lapABtn.disabled = true;
+  sw.dom.lapBBtn.disabled = true;
+  sw.dom.lapBothBtn.disabled = true;
   sw.dom.resetBtn.disabled = false;
   setStatus(sw, '停止しました。スタートで再開、リセットでクリアできます。');
 }
@@ -164,25 +181,36 @@ function resetStopwatch(sw) {
   if (sw.running) return;
   sw.elapsedMs = 0;
   sw.records = [];
-  sw.lastLapMs = 0;
+  sw.lastLapMs = { A: 0, B: 0 };
+  sw.lapCount = { A: 0, B: 0 };
   sw.savedCount = 0;
   sw.dom.display.textContent = formatTime(0);
   renderRecords(sw);
   setStatus(sw, '');
 }
 
-function addRecord(sw) {
-  if (!sw.running) return;
-  const totalMs = currentElapsedMs(sw);
-  const lapMs = totalMs - sw.lastLapMs;
-  sw.lastLapMs = totalMs;
-
+function pushLap(sw, track, totalMs) {
+  const lapMs = totalMs - sw.lastLapMs[track];
+  sw.lastLapMs[track] = totalMs;
+  sw.lapCount[track] += 1;
   sw.records.push({
-    idx: sw.records.length + 1,
+    idx: sw.lapCount[track],
+    track,
     lapMs,
     totalMs,
     wallClock: new Date().toISOString(),
   });
+}
+
+function addRecord(sw, track) {
+  if (!sw.running) return;
+  const totalMs = currentElapsedMs(sw);
+  if (track === 'both') {
+    pushLap(sw, 'A', totalMs);
+    pushLap(sw, 'B', totalMs);
+  } else {
+    pushLap(sw, track, totalMs);
+  }
   renderRecords(sw);
 }
 
@@ -201,7 +229,7 @@ function renderRecords(sw) {
     const row = document.createElement('div');
     row.className = 'record-row' + (i === sw.records.length - 1 ? ' latest' : '');
     row.innerHTML = `
-      <span class="idx">#${r.idx}</span>
+      <span class="idx track-${r.track.toLowerCase()}">${r.track}${r.idx}</span>
       <span class="time-lap">${formatTime(r.lapMs)}</span>
       <span class="time-total">${formatTime(r.totalMs)}</span>
     `;
@@ -217,8 +245,8 @@ function exportCsv(sw) {
     setStatus(sw, '記録がありません。');
     return;
   }
-  const header = ['No', '記録日時', '区間タイム', '合計タイム'];
-  const rows = sw.records.map((r) => [r.idx, r.wallClock, formatTime(r.lapMs), formatTime(r.totalMs)]);
+  const header = ['No', 'レーン', '記録日時', '区間タイム', '合計タイム'];
+  const rows = sw.records.map((r) => [r.idx, r.track, r.wallClock, formatTime(r.lapMs), formatTime(r.totalMs)]);
   const csv = [header, ...rows]
     .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     .join('\r\n');
@@ -285,7 +313,7 @@ async function saveToSheet(sw) {
   sw.dom.saveSheetBtn.disabled = true;
   sw.dom.sheetBtnLabel.textContent = '保存中…';
   try {
-    const rows = pending.map((r) => [r.idx, sw.label, r.wallClock, formatTime(r.lapMs), formatTime(r.totalMs)]);
+    const rows = pending.map((r) => [r.idx, sw.label, r.track, r.wallClock, formatTime(r.lapMs), formatTime(r.totalMs)]);
     await postToScript({ secret: sheets.secret, sheetName: sheets.sheetName, rows });
     sw.savedCount = sw.records.length;
     setStatus(sw, `${pending.length}件をスプレッドシートに保存しました。`);

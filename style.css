@@ -154,23 +154,25 @@ html, body {
 
 .controls {
   display: grid;
-  grid-template-columns: 1fr 1.6fr;
+  grid-template-columns: 1fr 1.8fr;
   gap: 10px;
   width: 100%;
 }
 
-.start-stop-col {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.controls .sw-toggle {
+  height: 100%;
+  font-size: 17px;
 }
 
-.start-stop-col .btn {
-  flex: 1 1 auto;
+.lap-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
 .btn.btn-lap {
-  font-size: 22px;
+  padding: 12px 6px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.02em;
   background: var(--lcd-bg);
@@ -180,7 +182,10 @@ html, body {
 
 @media (max-width: 420px) {
   .controls {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
+  }
+  .controls .sw-toggle {
+    height: auto;
   }
 }
 
@@ -279,7 +284,7 @@ html, body {
 
 .record-row {
   display: grid;
-  grid-template-columns: 32px 1fr 1fr;
+  grid-template-columns: 40px 1fr 1fr;
   align-items: baseline;
   gap: 6px;
   padding: 6px 8px;
@@ -293,8 +298,19 @@ html, body {
 .record-row:nth-child(odd) { background: var(--panel-2); }
 
 .record-row .idx {
-  color: var(--text-dim);
+  display: inline-block;
   font-size: 11px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.record-row .idx.track-a {
+  background: var(--lcd-bg);
+  color: var(--lcd-ink);
+}
+.record-row .idx.track-b {
+  background: var(--accent-dim);
+  color: var(--text);
 }
 
 .record-row .time-lap {
