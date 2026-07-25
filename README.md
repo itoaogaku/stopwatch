@@ -30,3 +30,5 @@ python3 -m http.server 8080
 - `index.html` — 画面構造
 - `style.css` — デザイン(記録を多列グリッドで密に表示)
 - `app.js` — 計測ロジック・記録管理・CSV連携
+- `icon.svg` / `icons/` — ファビコン・ホーム画面追加時のアイコン(ストップウォッチ型)
+- `manifest.json` — ホーム画面に追加した際のアイコン・アプリ名の設定
