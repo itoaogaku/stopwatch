@@ -54,19 +54,6 @@ html, body {
   color: var(--ink-dim);
 }
 
-.icon-btn {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  color: var(--text);
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  font-size: 16px;
-  cursor: pointer;
-}
-.icon-btn:hover { background: var(--panel); }
-.icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-
 .stopwatch-list {
   display: flex;
   flex-direction: column;
@@ -436,77 +423,3 @@ html, body {
   outline: 1px solid var(--accent);
 }
 
-/* Modal */
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  z-index: 10;
-}
-.modal.hidden { display: none; }
-
-.modal-content {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  color: var(--text);
-  width: 100%;
-  max-width: 420px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px;
-  border-bottom: 1px solid var(--border);
-}
-.modal-header h2 { font-size: 16px; margin: 0; }
-
-.modal-body {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.modal-body label {
-  font-size: 12px;
-  color: var(--text-dim);
-  margin-top: 10px;
-}
-
-.modal-body input {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 8px;
-  padding: 10px;
-  font-size: 14px;
-}
-
-.hint {
-  font-size: 12px;
-  color: var(--text-dim);
-  margin-top: 10px;
-  line-height: 1.5;
-}
-
-.auth-status {
-  font-size: 12px;
-  color: var(--text-dim);
-  min-height: 16px;
-  margin-top: 8px;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-}

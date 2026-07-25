@@ -4,16 +4,6 @@
 const el = {
   stopwatchList: document.getElementById('stopwatchList'),
   template: document.getElementById('stopwatchTemplate'),
-
-  settingsBtn: document.getElementById('settingsBtn'),
-  settingsModal: document.getElementById('settingsModal'),
-  closeSettingsBtn: document.getElementById('closeSettingsBtn'),
-  scriptUrlInput: document.getElementById('scriptUrlInput'),
-  secretInput: document.getElementById('secretInput'),
-  sheetNameInput: document.getElementById('sheetNameInput'),
-  saveSettingsBtn: document.getElementById('saveSettingsBtn'),
-  testConnectionBtn: document.getElementById('testConnectionBtn'),
-  testStatus: document.getElementById('testStatus'),
 };
 
 /* ---------- Time formatting ---------- */
@@ -54,7 +44,6 @@ function createStopwatch(seed) {
     records: [],
     lastLapMs: { A: 0, B: 0 },
     lapCount: { A: 0, B: 0 },
-    savedCount: 0,
   };
 
   const node = el.template.content.firstElementChild.cloneNode(true);
@@ -72,8 +61,6 @@ function createStopwatch(seed) {
     liveB: node.querySelector('.sw-live-b'),
     resetBtn: node.querySelector('.sw-reset'),
     exportCsvBtn: node.querySelector('.sw-export-csv'),
-    saveSheetBtn: node.querySelector('.sw-save-sheet'),
-    sheetBtnLabel: node.querySelector('.sheet-btn-label'),
     status: node.querySelector('.sw-status'),
     recordsA: node.querySelector('.sw-records-a'),
     recordsB: node.querySelector('.sw-records-b'),
@@ -102,7 +89,6 @@ function createStopwatch(seed) {
   sw.dom.lapBothBtn.addEventListener('click', () => addRecord(sw, 'both'));
   sw.dom.resetBtn.addEventListener('click', () => resetStopwatch(sw));
   sw.dom.exportCsvBtn.addEventListener('click', () => exportCsv(sw));
-  sw.dom.saveSheetBtn.addEventListener('click', () => saveToSheet(sw));
   sw.dom.duplicateBtn.addEventListener('click', () => duplicateStopwatch(sw));
   sw.dom.removeBtn.addEventListener('click', () => removeStopwatch(sw));
 
@@ -210,7 +196,6 @@ function resetStopwatch(sw) {
   sw.records = [];
   sw.lastLapMs = { A: 0, B: 0 };
   sw.lapCount = { A: 0, B: 0 };
-  sw.savedCount = 0;
   sw.dom.display.textContent = formatTime(0);
   renderRecords(sw);
   updateLiveSplits(sw);
@@ -294,107 +279,6 @@ function exportCsv(sw) {
   a.click();
   URL.revokeObjectURL(url);
 }
-
-/* ---------- Google Apps Script (GAS) webhook integration ---------- */
-const sheets = {
-  scriptUrl: localStorage.getItem('sw_scriptUrl') || '',
-  secret: localStorage.getItem('sw_secret') || '',
-  sheetName: localStorage.getItem('sw_sheetName') || 'シート1',
-};
-
-// Sent as text/plain to avoid a CORS preflight request against the Apps Script endpoint.
-async function postToScript(payload) {
-  const res = await fetch(sheets.scriptUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload),
-  });
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || `unexpected response (${res.status})`);
-  return data;
-}
-
-async function testConnection() {
-  const scriptUrl = el.scriptUrlInput.value.trim();
-  if (!scriptUrl) {
-    el.testStatus.textContent = 'ウェブアプリURLを入力してください。';
-    return;
-  }
-  sheets.scriptUrl = scriptUrl;
-  sheets.secret = el.secretInput.value.trim();
-  sheets.sheetName = el.sheetNameInput.value.trim() || 'シート1';
-
-  el.testStatus.textContent = '接続確認中…';
-  try {
-    const data = await postToScript({ secret: sheets.secret, sheetName: sheets.sheetName, rows: [] });
-    el.testStatus.textContent = `接続できました(現在の行数: ${data.rowCount ?? '不明'})。`;
-  } catch (err) {
-    console.error(err);
-    el.testStatus.textContent = `接続に失敗しました: ${err.message}`;
-  }
-}
-
-async function saveToSheet(sw) {
-  if (!sheets.scriptUrl) {
-    openSettings();
-    setStatus(sw, 'ウェブアプリURLを設定してください。');
-    return;
-  }
-  const pending = sw.records.slice(sw.savedCount);
-  if (pending.length === 0) {
-    setStatus(sw, '保存する新しい記録がありません。');
-    return;
-  }
-
-  sw.dom.saveSheetBtn.disabled = true;
-  sw.dom.sheetBtnLabel.textContent = '保存中…';
-  try {
-    const rows = pending.map((r) => [r.idx, sw.label, r.track, r.wallClock, formatTime(r.lapMs), formatTime(r.totalMs)]);
-    await postToScript({ secret: sheets.secret, sheetName: sheets.sheetName, rows });
-    sw.savedCount = sw.records.length;
-    setStatus(sw, `${pending.length}件をスプレッドシートに保存しました。`);
-  } catch (err) {
-    console.error(err);
-    setStatus(sw, `スプレッドシートへの保存に失敗しました: ${err.message}`);
-  } finally {
-    sw.dom.saveSheetBtn.disabled = false;
-    sw.dom.sheetBtnLabel.textContent = 'スプレッドシートに保存';
-  }
-}
-
-/* ---------- Settings modal ---------- */
-function openSettings() {
-  el.scriptUrlInput.value = sheets.scriptUrl;
-  el.secretInput.value = sheets.secret;
-  el.sheetNameInput.value = sheets.sheetName;
-  el.testStatus.textContent = '';
-  el.settingsModal.classList.remove('hidden');
-}
-
-function closeSettings() {
-  el.settingsModal.classList.add('hidden');
-}
-
-function saveSettings() {
-  sheets.scriptUrl = el.scriptUrlInput.value.trim();
-  sheets.secret = el.secretInput.value.trim();
-  sheets.sheetName = el.sheetNameInput.value.trim() || 'シート1';
-  localStorage.setItem('sw_scriptUrl', sheets.scriptUrl);
-  localStorage.setItem('sw_secret', sheets.secret);
-  localStorage.setItem('sw_sheetName', sheets.sheetName);
-  el.testStatus.textContent = '設定を保存しました。';
-}
-
-/* ---------- Wire up global events ---------- */
-el.settingsBtn.addEventListener('click', openSettings);
-el.closeSettingsBtn.addEventListener('click', closeSettings);
-el.settingsModal.addEventListener('click', (e) => {
-  if (e.target === el.settingsModal) closeSettings();
-});
-el.saveSettingsBtn.addEventListener('click', () => {
-  saveSettings();
-});
-el.testConnectionBtn.addEventListener('click', testConnection);
 
 window.addEventListener('load', () => {
   createStopwatch();

@@ -10,7 +10,6 @@
   <div class="app">
     <header class="topbar">
       <h1>ストップウォッチ</h1>
-      <button id="settingsBtn" class="icon-btn" title="スプレッドシート設定" aria-label="設定">⚙</button>
     </header>
 
     <div id="stopwatchList" class="stopwatch-list"></div>
@@ -53,9 +52,6 @@
           <div class="secondary-actions">
             <button type="button" class="btn btn-ghost sw-reset">リセット</button>
             <button type="button" class="btn btn-ghost sw-export-csv">CSV保存</button>
-            <button type="button" class="btn btn-ghost sw-save-sheet">
-              <span class="sheet-btn-label">スプレッドシートに保存</span>
-            </button>
           </div>
           <p class="status sw-status" role="status" aria-live="polite"></p>
         </div>
@@ -85,36 +81,6 @@
       </div>
     </section>
   </template>
-
-  <div id="settingsModal" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>スプレッドシート連携設定</h2>
-        <button id="closeSettingsBtn" class="icon-btn" aria-label="閉じる">✕</button>
-      </div>
-      <div class="modal-body">
-        <label for="scriptUrlInput">GAS ウェブアプリ URL</label>
-        <input id="scriptUrlInput" type="text" placeholder="https://script.google.com/macros/s/xxxx/exec" />
-
-        <label for="secretInput">合言葉(シークレット)</label>
-        <input id="secretInput" type="text" placeholder="スクリプト側と同じ文字列" />
-
-        <label for="sheetNameInput">シート名</label>
-        <input id="sheetNameInput" type="text" placeholder="シート1" value="シート1" />
-
-        <p class="hint">
-          Google Apps Script をウェブアプリとして公開し、そのURLをここに設定します。手順は README.md を参照してください。値はこのブラウザ内(localStorage)にのみ保存されます。
-        </p>
-
-        <div id="testStatus" class="auth-status"></div>
-
-        <div class="modal-actions">
-          <button id="testConnectionBtn" class="btn">接続テスト</button>
-          <button id="saveSettingsBtn" class="btn btn-primary">保存</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <script src="app.js"></script>
 </body>
