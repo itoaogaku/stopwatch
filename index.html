@@ -34,6 +34,28 @@
         <div id="paceRows" class="pace-rows"></div>
         <button type="button" id="paceAddRowBtn" class="btn btn-ghost btn-sm">+ 行を追加</button>
       </div>
+
+      <div class="pace-app">
+        <h2 class="pace-title">距離からの所要タイム早見表</h2>
+        <p class="pace-desc">距離(m)を入力すると、決まったペースごとにその距離を走るのにかかる時間が自動で計算されます。</p>
+        <label class="pace-field">
+          <span>距離(m)</span>
+          <input type="number" inputmode="decimal" id="presetDistanceInput" placeholder="1000" min="0" step="any" />
+        </label>
+        <div id="presetPaceTable" class="preset-pace-table">
+          <div class="preset-pace-row" data-pace-sec="180"><span class="preset-pace-label">3:00/km</span><span class="preset-pace-time">--:--</span></div>
+          <div class="preset-pace-row" data-pace-sec="190"><span class="preset-pace-label">3:10/km</span><span class="preset-pace-time">--:--</span></div>
+          <div class="preset-pace-row" data-pace-sec="200"><span class="preset-pace-label">3:20/km</span><span class="preset-pace-time">--:--</span></div>
+          <div class="preset-pace-row" data-pace-sec="204"><span class="preset-pace-label">3:24/km</span><span class="preset-pace-time">--:--</span></div>
+          <div class="preset-pace-row" data-pace-sec="210"><span class="preset-pace-label">3:30/km</span><span class="preset-pace-time">--:--</span></div>
+          <div class="preset-pace-row" data-pace-sec="216"><span class="preset-pace-label">3:36/km</span><span class="preset-pace-time">--:--</span></div>
+          <div class="preset-pace-row" data-pace-sec="220"><span class="preset-pace-label">3:40/km</span><span class="preset-pace-time">--:--</span></div>
+          <div class="preset-pace-row" data-pace-sec="222"><span class="preset-pace-label">3:42/km</span><span class="preset-pace-time">--:--</span></div>
+          <div class="preset-pace-row" data-pace-sec="228"><span class="preset-pace-label">3:48/km</span><span class="preset-pace-time">--:--</span></div>
+          <div class="preset-pace-row" data-pace-sec="230"><span class="preset-pace-label">3:50/km</span><span class="preset-pace-time">--:--</span></div>
+          <div class="preset-pace-row" data-pace-sec="240"><span class="preset-pace-label">4:00/km</span><span class="preset-pace-time">--:--</span></div>
+        </div>
+      </div>
     </div>
   </div>
 

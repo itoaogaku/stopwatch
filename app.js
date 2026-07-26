@@ -15,6 +15,8 @@ const el = {
   paceRows: document.getElementById('paceRows'),
   paceAddRowBtn: document.getElementById('paceAddRowBtn'),
   paceRowTemplate: document.getElementById('paceRowTemplate'),
+  presetDistanceInput: document.getElementById('presetDistanceInput'),
+  presetPaceRows: document.querySelectorAll('#presetPaceTable .preset-pace-row'),
 };
 
 /* ---------- Tabs ---------- */
@@ -86,6 +88,37 @@ el.paceAddRowBtn.addEventListener('click', () => addPaceRow());
 addPaceRow();
 addPaceRow();
 addPaceRow();
+
+/* ---------- Preset-pace time table ---------- */
+// The reverse direction from the calculator above: fixed common paces, and
+// the distance is the only thing you type — every row's time updates the
+// instant it changes.
+function formatDuration(sec) {
+  if (!Number.isFinite(sec) || sec <= 0) return '--:--';
+  const totalDecis = Math.round(sec * 10);
+  const decis = totalDecis % 10;
+  const totalSeconds = Math.floor(totalDecis / 10);
+  const seconds = totalSeconds % 60;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const minutes = totalMinutes % 60;
+  const hours = Math.floor(totalMinutes / 60);
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const minutesStr = hours > 0 ? pad2(minutes) : String(minutes);
+  const base = `${minutesStr}:${pad2(seconds)}.${decis}`;
+  return hours > 0 ? `${hours}:${base}` : base;
+}
+
+function renderPresetPaceTable() {
+  const distance = Number(el.presetDistanceInput.value);
+  const valid = distance > 0;
+  el.presetPaceRows.forEach((row) => {
+    const paceSecPerKm = Number(row.dataset.paceSec);
+    const timeSec = valid ? paceSecPerKm * (distance / 1000) : NaN;
+    row.querySelector('.preset-pace-time').textContent = formatDuration(timeSec);
+  });
+}
+
+el.presetDistanceInput.addEventListener('input', renderPresetPaceTable);
 
 /* ---------- Press feedback ---------- */
 // Vibration API isn't supported by iOS Safari (as of this writing), so this

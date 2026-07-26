@@ -706,3 +706,29 @@ html, body {
   color: var(--text);
 }
 
+.preset-pace-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.preset-pace-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.preset-pace-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.preset-pace-time {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
