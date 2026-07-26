@@ -541,7 +541,7 @@ function setStatus(sw, msg) {
 }
 
 /* ---------- Records rendering ---------- */
-const VISIBLE_RECORD_COUNT = 4;
+const VISIBLE_RECORD_COUNT = 0;
 
 // Returns how many of this lane's records are hidden beyond the visible cap.
 function renderColumn(container, countEl, records, track, expanded) {
