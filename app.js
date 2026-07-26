@@ -44,6 +44,19 @@ function defaultLabelFor(number) {
   return label;
 }
 
+// Children (duplicated from a running stopwatch) are named after their root
+// parent's label, e.g. "A-複製1", "A-複製2", counted among existing children
+// of that same root parent.
+function defaultChildLabel(rootId) {
+  const rootSw = stopwatches.get(rootId);
+  const parentLabel = rootSw ? rootSw.label : '';
+  let count = 0;
+  stopwatches.forEach((s) => {
+    if (s.parentId === rootId) count += 1;
+  });
+  return `${parentLabel}-複製${count + 1}`;
+}
+
 // seed lets a duplicate start already running, at the source's current elapsed time.
 // seed.parentId, if set, makes this a child grouped under that root parent instead
 // of a new independent parent.
@@ -52,10 +65,13 @@ function createStopwatch(seed) {
   const number = nextStopwatchNumber++;
   if (firstStopwatchId === null) firstStopwatchId = id;
 
+  const defaultLabel = seed?.parentId ? defaultChildLabel(seed.parentId) : defaultLabelFor(number);
+
   const sw = {
     id,
     number,
-    label: defaultLabelFor(number),
+    label: defaultLabel,
+    defaultLabel,
     parentId: seed?.parentId ?? null,
     running: seed?.running ?? false,
     startEpoch: Date.now(),
@@ -144,7 +160,7 @@ function createStopwatch(seed) {
 
 function renameStopwatch(sw) {
   const text = sw.dom.label.textContent.trim();
-  sw.label = text || defaultLabelFor(sw.number);
+  sw.label = text || sw.defaultLabel;
   sw.dom.label.textContent = sw.label;
 }
 
