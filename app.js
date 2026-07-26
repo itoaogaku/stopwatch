@@ -411,16 +411,49 @@ async function downloadExcel(sheetName, header, rows, filenamePrefix) {
   URL.revokeObjectURL(url);
 }
 
+const LANE_EXPORT_HEADER = ['No', 'Aの記録日時', 'Aの区間タイム', 'Aの合計タイム', 'Bの記録日時', 'Bの区間タイム', 'Bの合計タイム'];
+
+// A and B are independent lap series (their own counters), so rows are
+// aligned by lap number (No) rather than by when each lap was taken —
+// each track keeps its own 記録日時/区間タイム/合計タイム columns, left
+// blank where that lane has no lap at that number.
+function buildLaneRows(records) {
+  const byIdx = new Map();
+  records.forEach((r) => {
+    if (!byIdx.has(r.idx)) byIdx.set(r.idx, {});
+    byIdx.get(r.idx)[r.track] = r;
+  });
+  const maxIdx = byIdx.size ? Math.max(...byIdx.keys()) : 0;
+  const rows = [];
+  for (let idx = 1; idx <= maxIdx; idx++) {
+    const entry = byIdx.get(idx) || {};
+    rows.push({ idx, a: entry.A, b: entry.B });
+  }
+  return rows;
+}
+
+function laneRowToCells(row) {
+  const { a, b } = row;
+  return [
+    row.idx,
+    a ? a.wallClock : '',
+    a ? formatTime(a.lapMs) : '',
+    a ? formatTime(a.totalMs) : '',
+    b ? b.wallClock : '',
+    b ? formatTime(b.lapMs) : '',
+    b ? formatTime(b.totalMs) : '',
+  ];
+}
+
 async function exportExcel(sw) {
   if (sw.records.length === 0) {
     setStatus(sw, '記録がありません。');
     return;
   }
-  const header = ['No', 'レーン', '記録日時', '区間タイム', '合計タイム'];
-  const rows = sw.records.map((r) => [r.idx, r.track, r.wallClock, formatTime(r.lapMs), formatTime(r.totalMs)]);
+  const rows = buildLaneRows(sw.records).map(laneRowToCells);
   sw.dom.exportCsvBtn.disabled = true;
   try {
-    await downloadExcel(sw.label, header, rows, `stopwatch_${sw.number}`);
+    await downloadExcel(sw.label, LANE_EXPORT_HEADER, rows, `stopwatch_${sw.number}`);
   } finally {
     sw.dom.exportCsvBtn.disabled = false;
   }
@@ -438,12 +471,12 @@ function stopwatchesInDisplayOrder() {
 }
 
 async function exportAllExcel() {
-  const header = ['ストップウォッチ', '親子', 'No', 'レーン', '記録日時', '区間タイム', '合計タイム'];
+  const header = ['ストップウォッチ', '親子', ...LANE_EXPORT_HEADER];
   const rows = [];
   stopwatchesInDisplayOrder().forEach((sw) => {
     const kind = sw.parentId ? '子' : '親';
-    sw.records.forEach((r) => {
-      rows.push([sw.label, kind, r.idx, r.track, r.wallClock, formatTime(r.lapMs), formatTime(r.totalMs)]);
+    buildLaneRows(sw.records).forEach((row) => {
+      rows.push([sw.label, kind, ...laneRowToCells(row)]);
     });
   });
   if (rows.length === 0) {
