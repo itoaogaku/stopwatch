@@ -9,6 +9,16 @@ const el = {
   lockOverlay: document.getElementById('lockOverlay'),
 };
 
+/* ---------- Haptic feedback ---------- */
+// Vibration API isn't supported by iOS Safari (as of this writing), so this
+// is a no-op there — but it works on Android/Chrome, and costs nothing to
+// have in place.
+document.addEventListener('click', (e) => {
+  if (e.target.closest('button') && 'vibrate' in navigator) {
+    navigator.vibrate(15);
+  }
+});
+
 /* ---------- Screen lock ---------- */
 // Full lock: the overlay covers the whole page and swallows every tap, so
 // nothing underneath can be triggered by accident. Only the toggle itself
