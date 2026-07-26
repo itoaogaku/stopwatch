@@ -195,6 +195,15 @@ html, body {
   text-shadow: 0 0 1px rgba(56, 63, 49, 0.35);
 }
 
+/* Past 1 hour an "H:" (or "HH:") prefix is added, which would otherwise
+   overflow the case on narrow phones at the base font size. */
+.display.is-hours {
+  font-size: clamp(34px, 9vw, 66px);
+}
+.display.is-long-hours {
+  font-size: clamp(28px, 7.5vw, 56px);
+}
+
 /* A and B live splits side by side, each with that lane's latest
    completed record (across every stopwatch) stacked directly beneath
    it — all inside the same LCD glass as the main clock. */

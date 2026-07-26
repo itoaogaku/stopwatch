@@ -26,6 +26,17 @@ function currentElapsedMs(sw) {
   return sw.elapsedMs + (Date.now() - sw.startEpoch);
 }
 
+// Past 1 hour the display grows an "H:" (or "HH:") prefix. The base font
+// size is tuned to fill narrow phone screens with the normal 8-character
+// MM:SS.CC readout, so those extra digits need a smaller size tier to avoid
+// getting clipped at the edge of the watch case.
+function setDisplayTime(sw, ms) {
+  sw.dom.display.textContent = formatTime(ms);
+  const hours = Math.floor(ms / 3600000);
+  sw.dom.display.classList.toggle('is-hours', hours >= 1 && hours < 10);
+  sw.dom.display.classList.toggle('is-long-hours', hours >= 10);
+}
+
 /* ---------- Stopwatch instances ---------- */
 const stopwatches = new Map(); // id -> stopwatch instance
 const familyGroups = new Map(); // root parent id -> wrapping DOM element for that parent + its children
@@ -114,7 +125,7 @@ function createStopwatch(seed) {
   sw.dom.duplicateParentBtn.hidden = id !== firstStopwatchId;
 
   sw.dom.label.textContent = sw.label;
-  sw.dom.display.textContent = formatTime(currentElapsedMs(sw));
+  setDisplayTime(sw, currentElapsedMs(sw));
   updateLiveSplits(sw);
 
   if (sw.running) {
@@ -254,7 +265,7 @@ function refreshLatestPanels(sw) {
 function tickAll() {
   stopwatches.forEach((sw) => {
     if (sw.running) {
-      sw.dom.display.textContent = formatTime(currentElapsedMs(sw));
+      setDisplayTime(sw, currentElapsedMs(sw));
       updateLiveSplits(sw);
     }
   });
@@ -294,7 +305,7 @@ function stopStopwatch(sw) {
   if (!sw.running) return;
   sw.elapsedMs = currentElapsedMs(sw);
   sw.running = false;
-  sw.dom.display.textContent = formatTime(sw.elapsedMs);
+  setDisplayTime(sw, sw.elapsedMs);
   sw.dom.toggleBtn.textContent = 'スタート';
   sw.dom.toggleBtn.classList.remove('btn-danger');
   sw.dom.toggleBtn.classList.add('btn-primary');
@@ -314,7 +325,7 @@ function resetStopwatch(sw) {
   sw.lastLapMs = { A: 0, B: 0 };
   sw.lapCount = { A: 0, B: 0 };
   sw.expanded = false;
-  sw.dom.display.textContent = formatTime(0);
+  setDisplayTime(sw, 0);
   renderRecords(sw);
   updateLiveSplits(sw);
   setStatus(sw, '');
