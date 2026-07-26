@@ -568,3 +568,141 @@ html, body {
   cursor: not-allowed;
 }
 
+/* ---------- Tabs ---------- */
+.tab-bar {
+  display: flex;
+  gap: 8px;
+}
+.tab-btn {
+  flex: 1 1 auto;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tab-btn.is-active {
+  background: var(--panel);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tab-panel[hidden] {
+  display: none;
+}
+
+/* ---------- Pace calculator ---------- */
+.pace-app {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  color: var(--text);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.pace-title {
+  font-size: 16px;
+  margin: 0;
+  color: var(--text);
+}
+.pace-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.pace-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Stacked layout (fields on top, results below) rather than a single-line
+   grid — a one-line row with distance/time/pace/speed/remove doesn't fit
+   narrow phones without squeezing digits illegible. */
+.pace-row {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pace-row-top {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.pace-field {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pace-field span {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-weight: 700;
+}
+.pace-field input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  padding: 8px;
+}
+.pace-field input:focus {
+  outline: 1px solid var(--accent);
+}
+
+.pace-remove {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 20px;
+  line-height: 1;
+  padding: 6px 6px;
+  cursor: pointer;
+}
+
+.pace-row-result {
+  display: flex;
+  justify-content: space-around;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.pace-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.pace-metric-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.pace-pace-value,
+.pace-speed-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+

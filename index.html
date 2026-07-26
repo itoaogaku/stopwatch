@@ -17,9 +17,51 @@
   <div id="lockOverlay" class="lock-overlay" hidden></div>
 
   <div class="app">
-    <button type="button" id="exportAllBtn" class="btn btn-ghost btn-sm">全てExcel保存</button>
-    <div id="stopwatchList" class="stopwatch-list"></div>
+    <div class="tab-bar">
+      <button type="button" class="tab-btn is-active" data-tab="timer">計測</button>
+      <button type="button" class="tab-btn" data-tab="pace">距離</button>
+    </div>
+
+    <div id="timerTab" class="tab-panel is-active">
+      <button type="button" id="exportAllBtn" class="btn btn-ghost btn-sm">全てExcel保存</button>
+      <div id="stopwatchList" class="stopwatch-list"></div>
+    </div>
+
+    <div id="paceTab" class="tab-panel" hidden>
+      <div class="pace-app">
+        <h2 class="pace-title">ペース計算</h2>
+        <p class="pace-desc">距離(m)とタイムを入力すると、1kmあたりのペースと時速を自動で計算します。タイムは秒(例: 270)でも分:秒(例: 4:30)でも入力できます。</p>
+        <div id="paceRows" class="pace-rows"></div>
+        <button type="button" id="paceAddRowBtn" class="btn btn-ghost btn-sm">+ 行を追加</button>
+      </div>
+    </div>
   </div>
+
+  <template id="paceRowTemplate">
+    <div class="pace-row">
+      <div class="pace-row-top">
+        <label class="pace-field">
+          <span>距離(m)</span>
+          <input type="number" inputmode="decimal" class="pace-distance" placeholder="1000" min="0" step="any" />
+        </label>
+        <label class="pace-field">
+          <span>タイム</span>
+          <input type="text" inputmode="decimal" class="pace-time" placeholder="4:30 か 270" />
+        </label>
+        <button type="button" class="pace-remove" title="この行を削除">×</button>
+      </div>
+      <div class="pace-row-result">
+        <div class="pace-metric">
+          <span class="pace-metric-label">ペース</span>
+          <span class="pace-pace-value">--:--/km</span>
+        </div>
+        <div class="pace-metric">
+          <span class="pace-metric-label">速度</span>
+          <span class="pace-speed-value">-- km/h</span>
+        </div>
+      </div>
+    </div>
+  </template>
 
   <template id="stopwatchTemplate">
     <section class="stopwatch-card">

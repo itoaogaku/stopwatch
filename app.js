@@ -7,7 +7,85 @@ const el = {
   exportAllBtn: document.getElementById('exportAllBtn'),
   lockToggleBtn: document.getElementById('lockToggleBtn'),
   lockOverlay: document.getElementById('lockOverlay'),
+  tabButtons: document.querySelectorAll('.tab-btn'),
+  tabPanels: {
+    timer: document.getElementById('timerTab'),
+    pace: document.getElementById('paceTab'),
+  },
+  paceRows: document.getElementById('paceRows'),
+  paceAddRowBtn: document.getElementById('paceAddRowBtn'),
+  paceRowTemplate: document.getElementById('paceRowTemplate'),
 };
+
+/* ---------- Tabs ---------- */
+el.tabButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    el.tabButtons.forEach((b) => b.classList.toggle('is-active', b === btn));
+    Object.entries(el.tabPanels).forEach(([name, panel]) => {
+      panel.hidden = name !== btn.dataset.tab;
+    });
+  });
+});
+
+/* ---------- Pace calculator ---------- */
+// Accepts plain seconds ("270", "83.5") or minute:second ("4:30", "1:23.4",
+// and even "h:mm:ss" for very long distances).
+function parsePaceTime(str) {
+  const s = String(str).trim();
+  if (!s) return NaN;
+  const parts = s.split(':');
+  if (parts.some((p) => p.trim() === '' || Number.isNaN(Number(p)))) return NaN;
+  const nums = parts.map(Number);
+  if (nums.length === 1) return nums[0];
+  if (nums.length === 2) return nums[0] * 60 + nums[1];
+  if (nums.length === 3) return nums[0] * 3600 + nums[1] * 60 + nums[2];
+  return NaN;
+}
+
+function formatPace(secPerKm) {
+  if (!Number.isFinite(secPerKm) || secPerKm <= 0) return '--:--/km';
+  const totalDecis = Math.round(secPerKm * 10);
+  const decis = totalDecis % 10;
+  const totalSeconds = Math.floor(totalDecis / 10);
+  const seconds = totalSeconds % 60;
+  const minutes = Math.floor(totalSeconds / 60);
+  const pad2 = (n) => String(n).padStart(2, '0');
+  return `${minutes}:${pad2(seconds)}.${decis}/km`;
+}
+
+function formatSpeed(kmh) {
+  if (!Number.isFinite(kmh) || kmh <= 0) return '-- km/h';
+  return `${kmh.toFixed(2)} km/h`;
+}
+
+function computePaceRow(row) {
+  const distance = Number(row.querySelector('.pace-distance').value);
+  const timeSec = parsePaceTime(row.querySelector('.pace-time').value);
+  const valid = distance > 0 && Number.isFinite(timeSec) && timeSec > 0;
+  const paceSecPerKm = valid ? (timeSec / distance) * 1000 : NaN;
+  const speedKmh = valid ? (distance / 1000 / timeSec) * 3600 : NaN;
+  row.querySelector('.pace-pace-value').textContent = formatPace(paceSecPerKm);
+  row.querySelector('.pace-speed-value').textContent = formatSpeed(speedKmh);
+}
+
+function addPaceRow(distance = '', time = '') {
+  const node = el.paceRowTemplate.content.firstElementChild.cloneNode(true);
+  const distanceInput = node.querySelector('.pace-distance');
+  const timeInput = node.querySelector('.pace-time');
+  distanceInput.value = distance;
+  timeInput.value = time;
+  distanceInput.addEventListener('input', () => computePaceRow(node));
+  timeInput.addEventListener('input', () => computePaceRow(node));
+  node.querySelector('.pace-remove').addEventListener('click', () => node.remove());
+  el.paceRows.appendChild(node);
+  computePaceRow(node);
+}
+
+el.paceAddRowBtn.addEventListener('click', () => addPaceRow());
+
+addPaceRow();
+addPaceRow();
+addPaceRow();
 
 /* ---------- Press feedback ---------- */
 // Vibration API isn't supported by iOS Safari (as of this writing), so this
