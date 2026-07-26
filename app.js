@@ -70,6 +70,7 @@ function createStopwatch(seed) {
     root: node,
     label: node.querySelector('.sw-label'),
     duplicateBtn: node.querySelector('.sw-duplicate'),
+    duplicateParentBtn: node.querySelector('.sw-duplicate-parent'),
     removeBtn: node.querySelector('.sw-remove'),
     display: node.querySelector('.display'),
     toggleBtn: node.querySelector('.sw-toggle'),
@@ -114,6 +115,7 @@ function createStopwatch(seed) {
   sw.dom.resetBtn.addEventListener('click', () => resetStopwatch(sw));
   sw.dom.exportCsvBtn.addEventListener('click', () => exportExcel(sw));
   sw.dom.duplicateBtn.addEventListener('click', () => duplicateStopwatch(sw));
+  sw.dom.duplicateParentBtn.addEventListener('click', () => duplicateStopwatch(sw, { forceNewParent: true }));
   sw.dom.removeBtn.addEventListener('click', () => removeStopwatch(sw));
   sw.dom.moreBtn.addEventListener('click', () => {
     sw.expanded = !sw.expanded;
@@ -144,19 +146,27 @@ function renameStopwatch(sw) {
 }
 
 // Duplicating a stopped stopwatch starts a new independent parent.
-// Duplicating a running one creates a child grouped under that stopwatch's
-// root parent (or under itself, if it's already a parent).
-function duplicateStopwatch(source) {
-  const parentId = source.running ? (source.parentId ?? source.id) : null;
+// Duplicating a running one normally creates a child grouped under that
+// stopwatch's root parent (or under itself, if it's already a parent) —
+// unless forceNewParent is set, which always forks off a new, independent,
+// stopped parent (a frozen snapshot of the current time/records) even while
+// the source keeps running.
+function duplicateStopwatch(source, { forceNewParent = false } = {}) {
+  const makeChild = source.running && !forceNewParent;
+  const parentId = makeChild ? (source.parentId ?? source.id) : null;
+  const running = makeChild;
   const clone = createStopwatch({
-    running: source.running,
+    running,
     elapsedMs: currentElapsedMs(source),
     records: source.records,
     lastLapMs: source.lastLapMs,
     lapCount: source.lapCount,
     parentId,
-    statusMessage: source.running ? `${source.label} の計測中の状態を引き継ぎました。` : '',
+    statusMessage: running ? `${source.label} の計測中の状態を引き継ぎました。` : '',
   });
+  if (!running && forceNewParent) {
+    setStatus(clone, `${source.label} の記録を引き継いだ、新しい親を作成しました。`);
+  }
   return clone;
 }
 
