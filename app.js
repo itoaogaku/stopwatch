@@ -30,6 +30,7 @@ function currentElapsedMs(sw) {
 const stopwatches = new Map(); // id -> stopwatch instance
 const familyGroups = new Map(); // root parent id -> wrapping DOM element for that parent + its children
 let nextStopwatchNumber = 1;
+let nextParentNumber = 1; // letter naming counted only among parents, so children in between never skip a letter
 let firstStopwatchId = null; // only this stopwatch shows the "新規複製" button
 
 // 1 -> A, 2 -> B, ..., 26 -> Z, 27 -> AA, 28 -> AB, ... (spreadsheet-style).
@@ -65,7 +66,7 @@ function createStopwatch(seed) {
   const number = nextStopwatchNumber++;
   if (firstStopwatchId === null) firstStopwatchId = id;
 
-  const defaultLabel = seed?.parentId ? defaultChildLabel(seed.parentId) : defaultLabelFor(number);
+  const defaultLabel = seed?.parentId ? defaultChildLabel(seed.parentId) : defaultLabelFor(nextParentNumber++);
 
   const sw = {
     id,
