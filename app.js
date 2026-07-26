@@ -169,22 +169,24 @@ function renameStopwatch(sw) {
 // Duplicating a running one normally creates a child grouped under that
 // stopwatch's root parent (or under itself, if it's already a parent) —
 // unless forceNewParent is set, which always forks off a new, independent,
-// stopped parent (a frozen snapshot of the current time/records) even while
-// the source keeps running.
+// stopped parent even while the source keeps running. That fork keeps the
+// source's lap history but starts its own clock at 00:00.00, as if measurement
+// hadn't begun yet, rather than freezing at the source's current elapsed time.
 function duplicateStopwatch(source, { forceNewParent = false } = {}) {
   const makeChild = source.running && !forceNewParent;
   const parentId = makeChild ? (source.parentId ?? source.id) : null;
   const running = makeChild;
+  const resetTime = !running && forceNewParent;
   const clone = createStopwatch({
     running,
-    elapsedMs: currentElapsedMs(source),
+    elapsedMs: resetTime ? 0 : currentElapsedMs(source),
     records: source.records,
-    lastLapMs: source.lastLapMs,
+    lastLapMs: resetTime ? { A: 0, B: 0 } : source.lastLapMs,
     lapCount: source.lapCount,
     parentId,
     statusMessage: running ? `${source.label} の計測中の状態を引き継ぎました。` : '',
   });
-  if (!running && forceNewParent) {
+  if (resetTime) {
     setStatus(clone, `${source.label} の記録を引き継いだ、新しい親を作成しました。`);
   }
   return clone;
