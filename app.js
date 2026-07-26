@@ -410,7 +410,9 @@ function sanitizeSheetName(name) {
 
 function formatDateStamp(date) {
   const pad2 = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}${pad2(date.getMonth() + 1)}${pad2(date.getDate())}`;
+  const datePart = `${date.getFullYear()}${pad2(date.getMonth() + 1)}${pad2(date.getDate())}`;
+  const timePart = `${pad2(date.getHours())}${pad2(date.getMinutes())}${pad2(date.getSeconds())}`;
+  return `${datePart}_${timePart}`;
 }
 
 async function downloadExcel(sheetName, header, rows, filenamePrefix) {
