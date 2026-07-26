@@ -12,19 +12,7 @@
   <circle cx="50" cy="58" r="40" fill="#322f2b"/>
   <circle cx="50" cy="58" r="40" fill="none" stroke="#56514a" stroke-width="2"/>
 
-  <!-- LCD face -->
-  <circle cx="50" cy="58" r="30" fill="#c7cfbd"/>
-
-  <!-- ticks -->
-  <g stroke="#383f31" stroke-width="2.5" stroke-linecap="round">
-    <line x1="50" y1="30" x2="50" y2="35"/>
-    <line x1="50" y1="81" x2="50" y2="86"/>
-    <line x1="22" y1="58" x2="27" y2="58"/>
-    <line x1="73" y1="58" x2="78" y2="58"/>
-  </g>
-
-  <!-- hands -->
-  <line x1="50" y1="58" x2="50" y2="39" stroke="#383f31" stroke-width="3.5" stroke-linecap="round"/>
-  <line x1="50" y1="58" x2="65" y2="58" stroke="#383f31" stroke-width="3.5" stroke-linecap="round"/>
-  <circle cx="50" cy="58" r="4" fill="#d1272f"/>
+  <!-- LCD digital display, matching the app's own on-screen digits -->
+  <rect x="17" y="45" width="66" height="28" rx="5" fill="#c7cfbd"/>
+  <text x="50" y="65.5" font-family="'SF Mono','Menlo','Consolas','Roboto Mono',monospace" font-size="19" font-weight="700" fill="#383f31" text-anchor="middle" letter-spacing="0.5">12:34</text>
 </svg>
