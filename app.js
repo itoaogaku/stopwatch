@@ -380,7 +380,7 @@ async function downloadExcel(sheetName, header, rows, filenamePrefix) {
   headerRow.eachCell((cell) => {
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF322F2B' } };
-    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
   });
 
   const thin = { style: 'thin', color: { argb: 'FFB8B0A6' } };
