@@ -49,19 +49,6 @@ html, body {
   min-height: 100vh;
 }
 
-/* Sits directly on the white page, like sw-actions, so it needs its
-   own self-contained contrast rather than the dark-panel button look. */
-.global-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-.global-actions .btn {
-  flex: 0 0 auto;
-  background: var(--panel-2);
-  border-color: var(--border);
-  color: var(--text);
-}
-
 .stopwatch-list {
   display: flex;
   flex-direction: column;
@@ -145,7 +132,23 @@ html, body {
   color: var(--text);
 }
 
-.btn-sm {
+/* The first stopwatch's row also carries the "全てExcel保存" button
+   (4 buttons total instead of 3), so it needs tighter sizing to stay on
+   one line even on narrow phones. */
+.sw-actions:has(#exportAllBtn) {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+.sw-actions:has(#exportAllBtn) .btn {
+  padding: 5px 6px;
+  font-size: 10.5px;
+}
+
+/* Compound selector (not just .btn-sm) so this reliably beats the later,
+   equal-specificity .btn rule's padding/font-size — same fix as .btn.btn-lap
+   below. Previously .btn-sm's sizing was silently overridden and every
+   btn-sm button rendered at the full base .btn size. */
+.btn.btn-sm {
   padding: 6px 12px;
   font-size: 12px;
   min-width: 0;

@@ -114,6 +114,7 @@ function createStopwatch(seed) {
   sw.dom = {
     root: node,
     label: node.querySelector('.sw-label'),
+    actions: node.querySelector('.sw-actions'),
     duplicateBtn: node.querySelector('.sw-duplicate'),
     duplicateParentBtn: node.querySelector('.sw-duplicate-parent'),
     removeBtn: node.querySelector('.sw-remove'),
@@ -138,6 +139,9 @@ function createStopwatch(seed) {
 
   if (sw.parentId) node.classList.add('is-child');
   sw.dom.duplicateParentBtn.hidden = id !== firstStopwatchId;
+  if (id === firstStopwatchId) {
+    sw.dom.actions.insertBefore(el.exportAllBtn, sw.dom.duplicateBtn);
+  }
 
   sw.dom.label.textContent = sw.label;
   setDisplayTime(sw, currentElapsedMs(sw));
@@ -217,6 +221,17 @@ function removeStopwatch(sw) {
   if (stopwatches.size <= 1) return;
   const rootId = sw.parentId ?? sw.id;
   const group = familyGroups.get(rootId);
+  // The "全てExcel保存" button lives inside the first stopwatch's card;
+  // move it to whatever remains first before that card is torn down, so
+  // removing it never deletes the button along with it.
+  if (sw.dom.root.contains(el.exportAllBtn)) {
+    const nextCard = Array.from(el.stopwatchList.querySelectorAll('.stopwatch-card')).find(
+      (card) => card !== sw.dom.root
+    );
+    if (nextCard) {
+      nextCard.querySelector('.sw-actions').insertBefore(el.exportAllBtn, nextCard.querySelector('.sw-duplicate'));
+    }
+  }
   sw.dom.root.remove();
   stopwatches.delete(sw.id);
   if (group && group.children.length === 0) {
@@ -551,7 +566,9 @@ async function exportAllExcel() {
 
 el.exportAllBtn.addEventListener('click', exportAllExcel);
 
-window.addEventListener('load', () => {
-  createStopwatch();
-  requestAnimationFrame(tickAll);
-});
+// Runs immediately (the script tag sits at the end of <body>, so the DOM is
+// already parsed) rather than waiting for window "load", so the "全て
+// Excel保存" button gets moved into place before first paint instead of
+// briefly flashing at its original spot in the markup.
+createStopwatch();
+requestAnimationFrame(tickAll);
