@@ -380,6 +380,11 @@ function sanitizeSheetName(name) {
   return name.replace(/[\\/*?:[\]]/g, '').slice(0, 31) || 'Sheet1';
 }
 
+function formatDateStamp(date) {
+  const pad2 = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}${pad2(date.getMonth() + 1)}${pad2(date.getDate())}`;
+}
+
 async function downloadExcel(sheetName, header, rows, filenamePrefix) {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(sanitizeSheetName(sheetName));
@@ -416,17 +421,17 @@ async function downloadExcel(sheetName, header, rows, filenamePrefix) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${filenamePrefix}_${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`;
+  a.download = `${formatDateStamp(new Date())}_${filenamePrefix}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
-const LANE_EXPORT_HEADER = ['No', 'Aの区間タイム', 'Aの合計タイム', 'Bの区間タイム', 'Bの合計タイム', 'Aの記録日時', 'Bの記録日時'];
+const LANE_EXPORT_HEADER = ['No', 'Aの区間タイム', 'Aの合計タイム', 'Bの区間タイム', 'Bの合計タイム'];
 
 // A and B are independent lap series (their own counters), so rows are
 // aligned by lap number (No) rather than by when each lap was taken —
-// each track keeps its own 記録日時/区間タイム/合計タイム columns, left
-// blank where that lane has no lap at that number.
+// each track keeps its own 区間タイム/合計タイム columns, left blank
+// where that lane has no lap at that number.
 function buildLaneRows(records) {
   const byIdx = new Map();
   records.forEach((r) => {
@@ -450,8 +455,6 @@ function laneRowToCells(row) {
     a ? formatTime(a.totalMs) : '',
     b ? formatTime(b.lapMs) : '',
     b ? formatTime(b.totalMs) : '',
-    a ? a.wallClock : '',
-    b ? b.wallClock : '',
   ];
 }
 
