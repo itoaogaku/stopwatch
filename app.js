@@ -17,7 +17,7 @@ el.lockToggleBtn.addEventListener('click', () => {
   const locked = el.lockOverlay.hidden;
   el.lockOverlay.hidden = !locked;
   el.lockToggleBtn.classList.toggle('is-locked', locked);
-  el.lockToggleBtn.textContent = locked ? '🔒 固定中' : '🔓 固定';
+  el.lockToggleBtn.textContent = locked ? '固定中' : '固定';
   if (locked && document.activeElement instanceof HTMLElement) {
     document.activeElement.blur();
   }
