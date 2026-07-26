@@ -411,7 +411,7 @@ async function downloadExcel(sheetName, header, rows, filenamePrefix) {
   URL.revokeObjectURL(url);
 }
 
-const LANE_EXPORT_HEADER = ['No', 'Aの記録日時', 'Aの区間タイム', 'Aの合計タイム', 'Bの記録日時', 'Bの区間タイム', 'Bの合計タイム'];
+const LANE_EXPORT_HEADER = ['No', 'Aの区間タイム', 'Aの合計タイム', 'Bの区間タイム', 'Bの合計タイム', 'Aの記録日時', 'Bの記録日時'];
 
 // A and B are independent lap series (their own counters), so rows are
 // aligned by lap number (No) rather than by when each lap was taken —
@@ -436,12 +436,12 @@ function laneRowToCells(row) {
   const { a, b } = row;
   return [
     row.idx,
-    a ? a.wallClock : '',
     a ? formatTime(a.lapMs) : '',
     a ? formatTime(a.totalMs) : '',
-    b ? b.wallClock : '',
     b ? formatTime(b.lapMs) : '',
     b ? formatTime(b.totalMs) : '',
+    a ? a.wallClock : '',
+    b ? b.wallClock : '',
   ];
 }
 
