@@ -5,7 +5,23 @@ const el = {
   stopwatchList: document.getElementById('stopwatchList'),
   template: document.getElementById('stopwatchTemplate'),
   exportAllBtn: document.getElementById('exportAllBtn'),
+  lockToggleBtn: document.getElementById('lockToggleBtn'),
+  lockOverlay: document.getElementById('lockOverlay'),
 };
+
+/* ---------- Screen lock ---------- */
+// Full lock: the overlay covers the whole page and swallows every tap, so
+// nothing underneath can be triggered by accident. Only the toggle itself
+// (fixed above the overlay) stays reachable to unlock.
+el.lockToggleBtn.addEventListener('click', () => {
+  const locked = el.lockOverlay.hidden;
+  el.lockOverlay.hidden = !locked;
+  el.lockToggleBtn.classList.toggle('is-locked', locked);
+  el.lockToggleBtn.textContent = locked ? '🔒 固定中' : '🔓 固定';
+  if (locked && document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+});
 
 /* ---------- Time formatting ---------- */
 function formatTime(ms) {

@@ -43,6 +43,9 @@ html, body {
   max-width: 900px;
   margin: 0 auto;
   padding: 16px;
+  /* Clears the fixed lock toggle pinned at top-right, so it never overlaps
+     the first stopwatch's action buttons (both are right-aligned). */
+  padding-top: 64px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -519,5 +522,40 @@ html, body {
 
 .record-row.latest {
   outline: 1px solid var(--accent);
+}
+
+/* Screen lock: while running outdoors, a stray tap shouldn't be able to hit
+   reset/delete/etc. The toggle sits above the overlay (higher z-index) so
+   it's always reachable to unlock; the overlay itself blocks every other
+   tap on the page underneath it. */
+.lock-toggle {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 1000;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+.lock-toggle.is-locked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fdf3ee;
+}
+
+.lock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  box-sizing: border-box;
+  border: 4px solid var(--accent);
+  background: rgba(209, 39, 47, 0.05);
+  cursor: not-allowed;
 }
 
