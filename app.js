@@ -22,7 +22,10 @@ function formatTime(ms) {
 }
 
 // Excel export only: rounds to the nearest 0.1s and shows a single decimal
-// digit (e.g. "00:00.0") instead of the on-screen two-digit centiseconds.
+// digit (e.g. "0:00.0") instead of the on-screen two-digit centiseconds.
+// The leftmost unit (hours if present, otherwise minutes) isn't zero-padded
+// — e.g. "8:12.5", not "08:12.5" — but every unit below it still is, so
+// "1:05:23.4" stays unambiguous.
 function formatTimeShort(ms) {
   const totalDecis = Math.round(ms / 100);
   const decis = totalDecis % 10;
@@ -32,7 +35,8 @@ function formatTimeShort(ms) {
   const minutes = totalMinutes % 60;
   const hours = Math.floor(totalMinutes / 60);
   const pad2 = (n) => String(n).padStart(2, '0');
-  const base = `${pad2(minutes)}:${pad2(seconds)}.${decis}`;
+  const minutesStr = hours > 0 ? pad2(minutes) : String(minutes);
+  const base = `${minutesStr}:${pad2(seconds)}.${decis}`;
   return hours > 0 ? `${hours}:${base}` : base;
 }
 
