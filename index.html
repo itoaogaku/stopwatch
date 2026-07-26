@@ -20,6 +20,7 @@
     <div class="tab-bar">
       <button type="button" class="tab-btn is-active" data-tab="timer">計測</button>
       <button type="button" class="tab-btn" data-tab="pace">距離</button>
+      <button type="button" class="tab-btn" data-tab="crossing">山試走</button>
     </div>
 
     <div id="timerTab" class="tab-panel is-active">
@@ -57,6 +58,40 @@
         </div>
       </div>
     </div>
+
+    <div id="crossingTab" class="tab-panel" hidden>
+      <div class="pace-app crossing-card" id="crossingUpCard" data-direction="up">
+        <h2 class="pace-title">上り(小涌谷→宮ノ下方向の登り)</h2>
+        <p class="pace-desc">スタートから踏切までのタイムと、区間を走る電車の発着時刻から、踏切に引っかかる可能性のあるスタート時刻を計算します。小涌谷→宮ノ下方向の電車は「発-2分〜着-2分」、宮ノ下→小涌谷方向の電車は「発+1分〜着」が閉鎖時間になります。</p>
+        <div class="crossing-time-fields">
+          <label class="pace-field"><span>踏切まで 最速</span><input type="text" class="crossing-fastest" value="36:11" /></label>
+          <label class="pace-field"><span>踏切まで 最遅</span><input type="text" class="crossing-slowest" value="42:00" /></label>
+        </div>
+        <div class="train-rows"></div>
+        <button type="button" class="btn btn-ghost btn-sm add-train-btn">+ 電車を追加</button>
+        <div class="crossing-time-fields">
+          <label class="pace-field"><span>検索範囲 開始</span><input type="text" class="search-start" value="6:00" /></label>
+          <label class="pace-field"><span>検索範囲 終了</span><input type="text" class="search-end" value="9:00" /></label>
+        </div>
+        <div class="crossing-result"></div>
+      </div>
+
+      <div class="pace-app crossing-card" id="crossingDownCard" data-direction="down">
+        <h2 class="pace-title">下り(宮ノ下→小涌谷方向の下山)</h2>
+        <p class="pace-desc">下山のスタートから踏切までのタイムで、同様に踏切に引っかかる可能性のあるスタート時刻を計算します。</p>
+        <div class="crossing-time-fields">
+          <label class="pace-field"><span>踏切まで 最速</span><input type="text" class="crossing-fastest" value="29:00" /></label>
+          <label class="pace-field"><span>踏切まで 最遅</span><input type="text" class="crossing-slowest" value="32:00" /></label>
+        </div>
+        <div class="train-rows"></div>
+        <button type="button" class="btn btn-ghost btn-sm add-train-btn">+ 電車を追加</button>
+        <div class="crossing-time-fields">
+          <label class="pace-field"><span>検索範囲 開始</span><input type="text" class="search-start" value="6:00" /></label>
+          <label class="pace-field"><span>検索範囲 終了</span><input type="text" class="search-end" value="9:00" /></label>
+        </div>
+        <div class="crossing-result"></div>
+      </div>
+    </div>
   </div>
 
   <template id="paceRowTemplate">
@@ -80,6 +115,36 @@
         <div class="pace-metric">
           <span class="pace-metric-label">速度</span>
           <span class="pace-speed-value">-- km/h</span>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="trainRowTemplate">
+    <div class="pace-row train-row">
+      <div class="pace-row-top">
+        <select class="train-direction">
+          <option value="AtoB">小涌谷→宮ノ下</option>
+          <option value="BtoA">宮ノ下→小涌谷</option>
+        </select>
+        <label class="pace-field">
+          <span>発</span>
+          <input type="text" class="train-dep" placeholder="7:21" />
+        </label>
+        <label class="pace-field">
+          <span>着</span>
+          <input type="text" class="train-arr" placeholder="7:26" />
+        </label>
+        <button type="button" class="pace-remove train-remove" title="この電車を削除">×</button>
+      </div>
+      <div class="pace-row-result">
+        <div class="pace-metric">
+          <span class="pace-metric-label">閉鎖</span>
+          <span class="train-closure">--</span>
+        </div>
+        <div class="pace-metric">
+          <span class="pace-metric-label">スタート回避</span>
+          <span class="train-avoid">--</span>
         </div>
       </div>
     </div>

@@ -11,12 +11,15 @@ const el = {
   tabPanels: {
     timer: document.getElementById('timerTab'),
     pace: document.getElementById('paceTab'),
+    crossing: document.getElementById('crossingTab'),
   },
   paceRows: document.getElementById('paceRows'),
   paceAddRowBtn: document.getElementById('paceAddRowBtn'),
   paceRowTemplate: document.getElementById('paceRowTemplate'),
   presetDistanceInput: document.getElementById('presetDistanceInput'),
   presetPaceRows: document.querySelectorAll('#presetPaceTable .preset-pace-row'),
+  trainRowTemplate: document.getElementById('trainRowTemplate'),
+  crossingCards: document.querySelectorAll('.crossing-card'),
 };
 
 /* ---------- Tabs ---------- */
@@ -717,6 +720,160 @@ async function exportAllExcel() {
 }
 
 el.exportAllBtn.addEventListener('click', exportAllExcel);
+
+/* ---------- Level-crossing safety calculator (山試走) ---------- */
+// Clock time ("7:21") -> seconds since midnight. Distinct from parsePaceTime
+// (a duration parser reused below for the fastest/slowest fields) because
+// a bare "H:MM" here means hours:minutes, not minutes:seconds.
+function parseClockTime(str) {
+  const s = String(str).trim();
+  if (!s) return NaN;
+  const parts = s.split(':');
+  if (parts.length < 2 || parts.length > 3) return NaN;
+  const nums = parts.map(Number);
+  if (nums.some((n) => Number.isNaN(n))) return NaN;
+  return nums.length === 2 ? nums[0] * 3600 + nums[1] * 60 : nums[0] * 3600 + nums[1] * 60 + nums[2];
+}
+
+function formatClockTime(totalSeconds) {
+  if (!Number.isFinite(totalSeconds)) return '--:--';
+  let secs = Math.round(totalSeconds);
+  secs = ((secs % 86400) + 86400) % 86400;
+  const hours = Math.floor(secs / 3600);
+  const minutes = Math.floor((secs % 3600) / 60);
+  const seconds = secs % 60;
+  const pad2 = (n) => String(n).padStart(2, '0');
+  return seconds > 0 ? `${hours}:${pad2(minutes)}:${pad2(seconds)}` : `${hours}:${pad2(minutes)}`;
+}
+
+// Closure formula confirmed against two observed trains: a 小涌谷→宮ノ下
+// train closes the crossing [発-2分, 着-2分]; a 宮ノ下→小涌谷 train closes
+// it [発+1分, 着]. Given a runner's fastest/slowest start→crossing time,
+// the corresponding "avoid starting in this window" range is
+// [closureStart - slowest, closureEnd - fastest] — algebraically, that's
+// exactly the set of start times whose [start+fastest, start+slowest]
+// arrival-at-crossing window overlaps the closure.
+function computeTrainRow(row, fastestSec, slowestSec) {
+  const dir = row.querySelector('.train-direction').value;
+  const depSec = parseClockTime(row.querySelector('.train-dep').value);
+  const arrSec = parseClockTime(row.querySelector('.train-arr').value);
+  const closureEl = row.querySelector('.train-closure');
+  const avoidEl = row.querySelector('.train-avoid');
+
+  if (!Number.isFinite(depSec) || !Number.isFinite(arrSec)) {
+    closureEl.textContent = '--';
+    avoidEl.textContent = '--';
+    return null;
+  }
+
+  const closureStart = dir === 'AtoB' ? depSec - 120 : depSec + 60;
+  const closureEnd = dir === 'AtoB' ? arrSec - 120 : arrSec;
+  closureEl.textContent = `${formatClockTime(closureStart)}〜${formatClockTime(closureEnd)}`;
+
+  if (!Number.isFinite(fastestSec) || !Number.isFinite(slowestSec)) {
+    avoidEl.textContent = '--';
+    return null;
+  }
+  const unsafeStart = closureStart - slowestSec;
+  const unsafeEnd = closureEnd - fastestSec;
+  avoidEl.textContent = `${formatClockTime(unsafeStart)}〜${formatClockTime(unsafeEnd)}`;
+  return [unsafeStart, unsafeEnd];
+}
+
+function mergeIntervals(intervals) {
+  if (intervals.length === 0) return [];
+  const sorted = intervals.map((iv) => iv.slice()).sort((a, b) => a[0] - b[0]);
+  const merged = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1];
+    const [s, e] = sorted[i];
+    if (s <= last[1]) {
+      last[1] = Math.max(last[1], e);
+    } else {
+      merged.push([s, e]);
+    }
+  }
+  return merged;
+}
+
+function renderCrossingSummary(card, unsafeWindows) {
+  const resultEl = card.querySelector('.crossing-result');
+  const rangeStart = parseClockTime(card.querySelector('.search-start').value);
+  const rangeEnd = parseClockTime(card.querySelector('.search-end').value);
+  if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd) || rangeEnd <= rangeStart) {
+    resultEl.innerHTML = '<p class="pace-desc">検索範囲(開始・終了)を正しく入力してください。</p>';
+    return;
+  }
+
+  const merged = mergeIntervals(unsafeWindows)
+    .map(([s, e]) => [Math.max(s, rangeStart), Math.min(e, rangeEnd)])
+    .filter(([s, e]) => s < e);
+
+  const safeRanges = [];
+  let cursor = rangeStart;
+  merged.forEach(([s, e]) => {
+    if (s > cursor) safeRanges.push([cursor, s]);
+    cursor = Math.max(cursor, e);
+  });
+  if (cursor < rangeEnd) safeRanges.push([cursor, rangeEnd]);
+
+  const dangerHtml = merged.length
+    ? merged.map(([s, e]) => `<li class="crossing-danger">${formatClockTime(s)}〜${formatClockTime(e)} は避ける</li>`).join('')
+    : '<li class="crossing-safe">この範囲に踏切の危険はありません</li>';
+  const safeHtml = safeRanges.length
+    ? safeRanges.map(([s, e]) => `<li class="crossing-safe">${formatClockTime(s)}〜${formatClockTime(e)} はスタート可</li>`).join('')
+    : '<li class="crossing-danger">この範囲内に安全なスタート時刻はありません</li>';
+
+  resultEl.innerHTML = `
+    <p class="pace-metric-label">スタートを避けるべき時間帯</p>
+    <ul class="crossing-list">${dangerHtml}</ul>
+    <p class="pace-metric-label">安全にスタートできる時間帯</p>
+    <ul class="crossing-list">${safeHtml}</ul>
+  `;
+}
+
+function computeCrossingCard(card) {
+  const fastestSec = parsePaceTime(card.querySelector('.crossing-fastest').value);
+  const slowestSec = parsePaceTime(card.querySelector('.crossing-slowest').value);
+  const unsafeWindows = [];
+  card.querySelectorAll('.train-row').forEach((row) => {
+    const win = computeTrainRow(row, fastestSec, slowestSec);
+    if (win) unsafeWindows.push(win);
+  });
+  renderCrossingSummary(card, unsafeWindows);
+}
+
+function addTrainRow(card, direction, dep, arr) {
+  const node = el.trainRowTemplate.content.firstElementChild.cloneNode(true);
+  node.querySelector('.train-direction').value = direction;
+  node.querySelector('.train-dep').value = dep;
+  node.querySelector('.train-arr').value = arr;
+  const recompute = () => computeCrossingCard(card);
+  node.querySelector('.train-direction').addEventListener('change', recompute);
+  node.querySelector('.train-dep').addEventListener('input', recompute);
+  node.querySelector('.train-arr').addEventListener('input', recompute);
+  node.querySelector('.train-remove').addEventListener('click', () => {
+    node.remove();
+    recompute();
+  });
+  card.querySelector('.train-rows').appendChild(node);
+}
+
+el.crossingCards.forEach((card) => {
+  const recompute = () => computeCrossingCard(card);
+  card.querySelector('.crossing-fastest').addEventListener('input', recompute);
+  card.querySelector('.crossing-slowest').addEventListener('input', recompute);
+  card.querySelector('.search-start').addEventListener('input', recompute);
+  card.querySelector('.search-end').addEventListener('input', recompute);
+  card.querySelector('.add-train-btn').addEventListener('click', () => {
+    addTrainRow(card, 'AtoB', '', '');
+    recompute();
+  });
+  // Both directions share the same observed pair of trains as a starting example.
+  addTrainRow(card, 'AtoB', '7:21', '7:26');
+  addTrainRow(card, 'BtoA', '7:26', '7:31');
+  computeCrossingCard(card);
+});
 
 // Runs immediately (the script tag sits at the end of <body>, so the DOM is
 // already parsed) rather than waiting for window "load", so the "全て

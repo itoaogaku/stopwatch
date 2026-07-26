@@ -732,3 +732,56 @@ html, body {
   color: var(--text);
 }
 
+/* ---------- Level-crossing safety calculator ---------- */
+.crossing-time-fields {
+  display: flex;
+  gap: 8px;
+}
+
+.train-row .pace-row-top {
+  flex-wrap: wrap;
+}
+
+.train-direction {
+  flex: 1 1 100%;
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px;
+}
+
+.crossing-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.crossing-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.crossing-list li {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 10px;
+  border-radius: 8px;
+}
+.crossing-danger {
+  background: var(--accent-dim);
+  color: var(--text);
+}
+.crossing-safe {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--accent);
+}
+
