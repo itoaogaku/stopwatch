@@ -86,8 +86,6 @@ function addPaceRow(distance = '', time = '') {
 el.paceAddRowBtn.addEventListener('click', () => addPaceRow());
 
 addPaceRow();
-addPaceRow();
-addPaceRow();
 
 /* ---------- Preset-pace time table ---------- */
 // The reverse direction from the calculator above: fixed common paces, and
