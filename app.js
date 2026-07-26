@@ -21,6 +21,21 @@ function formatTime(ms) {
   return hours > 0 ? `${hours}:${base}` : base;
 }
 
+// Excel export only: rounds to the nearest 0.1s and shows a single decimal
+// digit (e.g. "00:00.0") instead of the on-screen two-digit centiseconds.
+function formatTimeShort(ms) {
+  const totalDecis = Math.round(ms / 100);
+  const decis = totalDecis % 10;
+  const totalSeconds = Math.floor(totalDecis / 10);
+  const seconds = totalSeconds % 60;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const minutes = totalMinutes % 60;
+  const hours = Math.floor(totalMinutes / 60);
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const base = `${pad2(minutes)}:${pad2(seconds)}.${decis}`;
+  return hours > 0 ? `${hours}:${base}` : base;
+}
+
 function currentElapsedMs(sw) {
   if (!sw.running) return sw.elapsedMs;
   return sw.elapsedMs + (Date.now() - sw.startEpoch);
@@ -481,10 +496,10 @@ function laneRowToCells(row) {
   const { a, b } = row;
   return [
     row.idx,
-    a ? formatTime(a.lapMs) : '',
-    a ? formatTime(a.totalMs) : '',
-    b ? formatTime(b.lapMs) : '',
-    b ? formatTime(b.totalMs) : '',
+    a ? formatTimeShort(a.lapMs) : '',
+    a ? formatTimeShort(a.totalMs) : '',
+    b ? formatTimeShort(b.lapMs) : '',
+    b ? formatTimeShort(b.totalMs) : '',
   ];
 }
 
