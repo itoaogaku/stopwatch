@@ -9,7 +9,7 @@ const el = {
   lockOverlay: document.getElementById('lockOverlay'),
 };
 
-/* ---------- Haptic feedback ---------- */
+/* ---------- Press feedback ---------- */
 // Vibration API isn't supported by iOS Safari (as of this writing), so this
 // is a no-op there — but it works on Android/Chrome, and costs nothing to
 // have in place.
@@ -18,6 +18,19 @@ document.addEventListener('click', (e) => {
     navigator.vibrate(15);
   }
 });
+
+// Visual stand-in for the missing haptic buzz on iOS: applied on pointerdown
+// (not click) so it's instant, and cleared on pointerup/cancel anywhere —
+// not just over the same button — in case a finger slides off before lifting.
+document.addEventListener('pointerdown', (e) => {
+  const btn = e.target.closest('button');
+  if (btn && !btn.disabled) btn.classList.add('is-pressed');
+});
+function clearPressedButtons() {
+  document.querySelectorAll('.is-pressed').forEach((btn) => btn.classList.remove('is-pressed'));
+}
+document.addEventListener('pointerup', clearPressedButtons);
+document.addEventListener('pointercancel', clearPressedButtons);
 
 /* ---------- Screen lock ---------- */
 // Full lock: the overlay covers the whole page and swallows every tap, so

@@ -348,9 +348,18 @@ html, body {
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.05s ease, background 0.15s ease, opacity 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.05s ease, background 0.15s ease, opacity 0.15s ease, filter 0.05s ease;
 }
-.btn:active { transform: scale(0.97); }
+/* .is-pressed is set on pointerdown (see app.js) rather than relying only on
+   :active, since iOS Safari is unreliable about applying :active on a quick
+   tap. A stronger scale/darken than a plain :active gives a clearer "pressed"
+   feel to stand in for the haptic buzz iOS can't provide. */
+.btn:active,
+.btn.is-pressed {
+  transform: scale(0.93);
+  filter: brightness(0.85);
+}
 .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .btn-primary {
