@@ -735,16 +735,15 @@ function parseClockTime(str) {
   return nums.length === 2 ? nums[0] * 3600 + nums[1] * 60 : nums[0] * 3600 + nums[1] * 60 + nums[2];
 }
 
-// This page only deals in whole minutes (no seconds) — rounds to the
-// nearest minute rather than showing sub-minute precision.
 function formatClockTime(totalSeconds) {
   if (!Number.isFinite(totalSeconds)) return '--:--';
-  let mins = Math.round(totalSeconds / 60);
-  mins = ((mins % 1440) + 1440) % 1440;
-  const hours = Math.floor(mins / 60);
-  const minutes = mins % 60;
+  let secs = Math.round(totalSeconds);
+  secs = ((secs % 86400) + 86400) % 86400;
+  const hours = Math.floor(secs / 3600);
+  const minutes = Math.floor((secs % 3600) / 60);
+  const seconds = secs % 60;
   const pad2 = (n) => String(n).padStart(2, '0');
-  return `${hours}:${pad2(minutes)}`;
+  return seconds > 0 ? `${hours}:${pad2(minutes)}:${pad2(seconds)}` : `${hours}:${pad2(minutes)}`;
 }
 
 // Closure formula confirmed against two observed trains: a 小涌谷→宮ノ下
@@ -833,15 +832,9 @@ function renderCrossingSummary(card, unsafeWindows) {
   `;
 }
 
-function parseWholeMinutes(str) {
-  const s = String(str).trim();
-  if (s === '' || Number.isNaN(Number(s))) return NaN;
-  return Number(s) * 60;
-}
-
 function computeCrossingCard(card) {
-  const fastestSec = parseWholeMinutes(card.querySelector('.crossing-fastest').value);
-  const slowestSec = parseWholeMinutes(card.querySelector('.crossing-slowest').value);
+  const fastestSec = parsePaceTime(card.querySelector('.crossing-fastest').value);
+  const slowestSec = parsePaceTime(card.querySelector('.crossing-slowest').value);
   const unsafeWindows = [];
   card.querySelectorAll('.train-row').forEach((row) => {
     const win = computeTrainRow(row, fastestSec, slowestSec);
