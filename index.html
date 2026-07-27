@@ -64,8 +64,8 @@
         <h2 class="pace-title">上り(宮ノ下→小涌谷方向、標高差による登り)</h2>
         <p class="pace-desc">スタートから踏切までのタイムと、区間を走る電車の発着時刻から、踏切に引っかかる可能性のあるスタート時刻を計算します。小涌谷→宮ノ下方向の電車は「発-2分〜着-2分」、宮ノ下→小涌谷方向の電車は「発+1分〜着」が閉鎖時間になります。</p>
         <div class="crossing-time-fields">
-          <label class="pace-field"><span>踏切まで 最速</span><input type="text" class="crossing-fastest" value="36:11" /></label>
-          <label class="pace-field"><span>踏切まで 最遅</span><input type="text" class="crossing-slowest" value="42:00" /></label>
+          <label class="pace-field"><span>踏切まで 最速(分)</span><input type="number" inputmode="decimal" class="crossing-fastest" value="36" min="0" step="1" /></label>
+          <label class="pace-field"><span>踏切まで 最遅(分)</span><input type="number" inputmode="decimal" class="crossing-slowest" value="42" min="0" step="1" /></label>
         </div>
         <div class="train-rows"></div>
         <button type="button" class="btn btn-ghost btn-sm add-train-btn">+ 電車を追加</button>
@@ -80,8 +80,8 @@
         <h2 class="pace-title">下り(小涌谷→宮ノ下方向の下山)</h2>
         <p class="pace-desc">下山のスタートから踏切までのタイムで、同様に踏切に引っかかる可能性のあるスタート時刻を計算します。</p>
         <div class="crossing-time-fields">
-          <label class="pace-field"><span>踏切まで 最速</span><input type="text" class="crossing-fastest" value="29:00" /></label>
-          <label class="pace-field"><span>踏切まで 最遅</span><input type="text" class="crossing-slowest" value="32:00" /></label>
+          <label class="pace-field"><span>踏切まで 最速(分)</span><input type="number" inputmode="decimal" class="crossing-fastest" value="29" min="0" step="1" /></label>
+          <label class="pace-field"><span>踏切まで 最遅(分)</span><input type="number" inputmode="decimal" class="crossing-slowest" value="32" min="0" step="1" /></label>
         </div>
         <div class="train-rows"></div>
         <button type="button" class="btn btn-ghost btn-sm add-train-btn">+ 電車を追加</button>
