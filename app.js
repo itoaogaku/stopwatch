@@ -26,7 +26,8 @@ const el = {
   stretchVoiceToggle: document.getElementById('stretchVoiceToggle'),
   stretchVoiceSelect: document.getElementById('stretchVoiceSelect'),
   stretchRecordingsToggle: document.getElementById('stretchRecordingsToggle'),
-  stretchRecordingsPanel: document.getElementById('stretchRecordingsPanel'),
+  stretchRecordingsModal: document.getElementById('stretchRecordingsModal'),
+  stretchRecordingsCloseBtn: document.getElementById('stretchRecordingsCloseBtn'),
   stretchRecordingsList: document.getElementById('stretchRecordingsList'),
   recordingRowTemplate: document.getElementById('recordingRowTemplate'),
   stretchTimer: document.getElementById('stretchTimer'),
@@ -1286,8 +1287,17 @@ if (!recordingSupported) {
   buildAllRecordingRows();
   loadAllRecordings().then(buildAllRecordingRows).catch(() => {});
 }
-el.stretchRecordingsToggle.addEventListener('click', () => {
-  el.stretchRecordingsPanel.hidden = !el.stretchRecordingsPanel.hidden;
+function openRecordingsModal() {
+  el.stretchRecordingsModal.hidden = false;
+}
+function closeRecordingsModal() {
+  el.stretchRecordingsModal.hidden = true;
+  stopAnyPlayback();
+}
+el.stretchRecordingsToggle.addEventListener('click', openRecordingsModal);
+el.stretchRecordingsCloseBtn.addEventListener('click', closeRecordingsModal);
+el.stretchRecordingsModal.addEventListener('click', (e) => {
+  if (e.target === el.stretchRecordingsModal) closeRecordingsModal(); // backdrop tap
 });
 
 function currentStretchElapsedMs() {

@@ -893,19 +893,61 @@ html, body {
   opacity: 0.5;
 }
 
-.stretch-recordings-panel {
+.stretch-recordings-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.stretch-recordings-modal[hidden] {
+  display: none;
+}
+.stretch-recordings-modal-panel {
   width: 100%;
+  max-width: 640px;
+  max-height: 88vh;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  box-sizing: border-box;
+  padding: 14px 14px calc(14px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+.stretch-recordings-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  flex: 0 0 auto;
+}
+.stretch-recordings-close-btn {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .stretch-recordings-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 360px;
   overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .recording-row {
