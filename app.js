@@ -24,6 +24,7 @@ const el = {
   crossingCards: document.querySelectorAll('.crossing-card'),
   stretchProgress: document.getElementById('stretchProgress'),
   stretchVoiceToggle: document.getElementById('stretchVoiceToggle'),
+  stretchVoiceSelect: document.getElementById('stretchVoiceSelect'),
   stretchTimer: document.getElementById('stretchTimer'),
   stretchCurrentGroup: document.getElementById('stretchCurrentGroup'),
   stretchNextGroup: document.getElementById('stretchNextGroup'),
@@ -1009,33 +1010,62 @@ let stretchStartEpoch = 0; // epoch when the current running span began
 // themselves. Unlike the Vibration API, speechSynthesis works on iOS Safari.
 let stretchVoiceEnabled = 'speechSynthesis' in window;
 
-// The Web Speech API can only use voices already installed on the device —
-// there's no way to swap in a different synthesis engine from a static page.
-// What we CAN do: prefer whichever installed Japanese voice sounds least
-// robotic (iOS/macOS ship both a compact default and higher-quality
-// "Enhanced"/"Premium" voices once downloaded), and tune rate/pitch to a
-// more natural-sounding pace instead of the default clipped cadence.
-let cachedJaVoice = null;
-function pickBestJapaneseVoice() {
+// The Web Speech API can only use voices the browser itself exposes to
+// speechSynthesis.getVoices() — on iOS Safari that's a small, fixed list
+// that does NOT track the system "Spoken Content" voice chosen in
+// Settings > Accessibility (that setting only affects VoiceOver/Speak
+// Screen, not web pages). So instead of guessing, let the user see exactly
+// what's available in THIS browser and pick directly, with a live preview.
+let selectedVoiceURI = null;
+
+function populateStretchVoiceSelect() {
   const voices = window.speechSynthesis.getVoices();
   const jaVoices = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith('ja'));
-  if (jaVoices.length === 0) return null;
-  const preferred = jaVoices.find((v) => /premium|enhanced|neural|siri/i.test(v.name));
-  return preferred || jaVoices[0];
-}
-if ('speechSynthesis' in window) {
-  cachedJaVoice = pickBestJapaneseVoice();
-  window.speechSynthesis.addEventListener('voiceschanged', () => {
-    cachedJaVoice = pickBestJapaneseVoice();
+  const list = jaVoices.length > 0 ? jaVoices : voices;
+
+  el.stretchVoiceSelect.innerHTML = '';
+  if (list.length === 0) {
+    const opt = document.createElement('option');
+    opt.textContent = '利用可能な音声が見つかりません';
+    el.stretchVoiceSelect.appendChild(opt);
+    el.stretchVoiceSelect.disabled = true;
+    return;
+  }
+  el.stretchVoiceSelect.disabled = false;
+  list.forEach((v) => {
+    const opt = document.createElement('option');
+    opt.value = v.voiceURI;
+    opt.textContent = `${v.name} (${v.lang})`;
+    el.stretchVoiceSelect.appendChild(opt);
   });
+
+  const stillAvailable = selectedVoiceURI && list.some((v) => v.voiceURI === selectedVoiceURI);
+  if (!stillAvailable) {
+    const preferred = list.find((v) => /premium|enhanced|neural|siri/i.test(v.name)) || list[0];
+    selectedVoiceURI = preferred.voiceURI;
+  }
+  el.stretchVoiceSelect.value = selectedVoiceURI;
 }
+
+if ('speechSynthesis' in window) {
+  populateStretchVoiceSelect();
+  window.speechSynthesis.addEventListener('voiceschanged', populateStretchVoiceSelect);
+} else {
+  el.stretchVoiceSelect.disabled = true;
+}
+
+el.stretchVoiceSelect.addEventListener('change', () => {
+  selectedVoiceURI = el.stretchVoiceSelect.value;
+  speakStretchCue('これはテストの音声です');
+});
 
 function speakStretchCue(text) {
   if (!stretchVoiceEnabled || !('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel(); // don't let a fast "次へ" tap queue up overlapping lines
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'ja-JP';
-  if (cachedJaVoice) utterance.voice = cachedJaVoice;
+  const voice = window.speechSynthesis.getVoices().find((v) => v.voiceURI === selectedVoiceURI);
+  if (voice) utterance.voice = voice;
   utterance.rate = 0.95;
   utterance.pitch = 1.0;
   window.speechSynthesis.speak(utterance);
