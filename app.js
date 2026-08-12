@@ -940,56 +940,62 @@ el.crossingCards.forEach((card) => {
 // Flattened from the team's cue sheet: every 30-second segment gets its own
 // entry, in the order the manager reads them aloud. "group" is the short
 // name shown big; "speech" is the exact line to say when that segment starts.
+// "speech" is the full on-screen cue (kanji + furigana + stage directions,
+// e.g. "(選手が体制を変えたらウォッチ押す)") — useful reference text for the
+// manager. "voice" is what's actually spoken aloud: kana readings in place
+// of kanji (verified against anatomical-term sources) so it's pronounced
+// correctly, with stage directions and asides dropped since those are
+// instructions for the manager, not part of the spoken cue itself.
 const STRETCH_STEPS = [
-  { group: '下後鋸筋', speech: '下後鋸筋(かこうきょきん)行きます、よーいはじめ' },
-  { group: '下後鋸筋(反対)', speech: '反対、よーいはじめ' },
+  { group: '下後鋸筋', speech: '下後鋸筋(かこうきょきん)行きます、よーいはじめ', voice: 'かこうきょきん、行きます。よーいはじめ' },
+  { group: '下後鋸筋(反対)', speech: '反対、よーいはじめ', voice: '反対、よーいはじめ' },
 
-  { group: '大臀筋', speech: '次、大臀筋(だいでんきん)(選手が体制を変えたらよーいはじめ)' },
-  { group: '大臀筋(反対)', speech: '反対、よーいはじめ' },
+  { group: '大臀筋', speech: '次、大臀筋(だいでんきん)(選手が体制を変えたらよーいはじめ)', voice: '次、だいでんきん' },
+  { group: '大臀筋(反対)', speech: '反対、よーいはじめ', voice: '反対、よーいはじめ' },
 
-  { group: '梨状筋', speech: '次、梨状筋(りじょうきん)(選手が体制を変えたらウォッチ押す)' },
-  { group: '梨状筋(反対)', speech: '反対' },
+  { group: '梨状筋', speech: '次、梨状筋(りじょうきん)(選手が体制を変えたらウォッチ押す)', voice: '次、りじょうきん' },
+  { group: '梨状筋(反対)', speech: '反対', voice: '反対' },
 
-  { group: '中臀筋', speech: '次、中臀筋(ちゅうでんきん)(選手が体制を変えたらウォッチ押す)' },
-  { group: '中臀筋(反対)', speech: '反対' },
+  { group: '中臀筋', speech: '次、中臀筋(ちゅうでんきん)(選手が体制を変えたらウォッチ押す)', voice: '次、ちゅうでんきん' },
+  { group: '中臀筋(反対)', speech: '反対', voice: '反対' },
 
-  { group: '大腿筋膜張筋', speech: '次、大腿筋膜張筋(だいたいきんまくちょうきん)(選手が体制を変えたらウォッチ押す)' },
-  { group: '大腿筋膜張筋(反対)', speech: '反対' },
+  { group: '大腿筋膜張筋', speech: '次、大腿筋膜張筋(だいたいきんまくちょうきん)(選手が体制を変えたらウォッチ押す)', voice: '次、だいたいきんまくちょうきん' },
+  { group: '大腿筋膜張筋(反対)', speech: '反対', voice: '反対' },
 
-  { group: 'ハム', speech: '次、ハム(選手が体制を変えたらウォッチ押す)' },
-  { group: 'ハム(内側)', speech: '内側' },
-  { group: 'ハム(外側)', speech: '外側' },
-  { group: 'ハム(反対)', speech: '反対' },
-  { group: 'ハム(反対・内側)', speech: '内側' },
-  { group: 'ハム(反対・外側)', speech: '外側' },
+  { group: 'ハム', speech: '次、ハム(選手が体制を変えたらウォッチ押す)', voice: '次、ハム' },
+  { group: 'ハム(内側)', speech: '内側', voice: '内側' },
+  { group: 'ハム(外側)', speech: '外側', voice: '外側' },
+  { group: 'ハム(反対)', speech: '反対', voice: '反対' },
+  { group: 'ハム(反対・内側)', speech: '内側', voice: '内側' },
+  { group: 'ハム(反対・外側)', speech: '外側', voice: '外側' },
 
-  { group: '内転筋', speech: '次、内転筋(ないてんきん)(選手が体制を変えたらウォッチ押す) ※補強のサーキットなどで内転筋をした場合とばす' },
-  { group: '内転筋(反対)', speech: '反対' },
+  { group: '内転筋', speech: '次、内転筋(ないてんきん)(選手が体制を変えたらウォッチ押す) ※補強のサーキットなどで内転筋をした場合とばす', voice: '次、ないてんきん' },
+  { group: '内転筋(反対)', speech: '反対', voice: '反対' },
 
-  { group: '腸骨筋', speech: '次、腸骨筋(ちょうこつきん)(選手が体制を変えたらウォッチ押す)' },
-  { group: '腸骨筋(大腰筋)', speech: '大腰筋(だいようきん)' },
+  { group: '腸骨筋', speech: '次、腸骨筋(ちょうこつきん)(選手が体制を変えたらウォッチ押す)', voice: '次、ちょうこつきん' },
+  { group: '腸骨筋(大腰筋)', speech: '大腰筋(だいようきん)', voice: 'だいようきん' },
 
-  { group: '反対・腸骨筋', speech: '次、反対、腸骨筋(ちょうこつきん)(選手が体制を変えたらウォッチ押す)' },
-  { group: '反対・腸骨筋(大腰筋)', speech: '大腰筋' },
+  { group: '反対・腸骨筋', speech: '次、反対、腸骨筋(ちょうこつきん)(選手が体制を変えたらウォッチ押す)', voice: '次、反対、ちょうこつきん' },
+  { group: '反対・腸骨筋(大腰筋)', speech: '大腰筋', voice: 'だいようきん' },
 
-  { group: '大腿四頭筋', speech: '次、大腿四頭筋(だいたいしとうきん)(選手が体制を変えたらウォッチ押す)' },
-  { group: '大腿四頭筋(反対)', speech: '反対' },
+  { group: '大腿四頭筋', speech: '次、大腿四頭筋(だいたいしとうきん)(選手が体制を変えたらウォッチ押す)', voice: '次、だいたいしとうきん' },
+  { group: '大腿四頭筋(反対)', speech: '反対', voice: '反対' },
 
-  { group: '腓骨筋', speech: '次、腓骨筋(ひこつきん)(選手が体制を変えたらウォッチ押す)' },
-  { group: '腓骨筋(後脛骨筋)', speech: '後脛骨筋(こうけいこつきん)' },
-  { group: '腓骨筋(反対)', speech: '反対、腓骨筋' },
-  { group: '腓骨筋(反対・後脛骨筋)', speech: '後脛骨筋(こうけいこつきん)' },
+  { group: '腓骨筋', speech: '次、腓骨筋(ひこつきん)(選手が体制を変えたらウォッチ押す)', voice: '次、ひこつきん' },
+  { group: '腓骨筋(後脛骨筋)', speech: '後脛骨筋(こうけいこつきん)', voice: 'こうけいこつきん' },
+  { group: '腓骨筋(反対)', speech: '反対、腓骨筋', voice: '反対、ひこつきん' },
+  { group: '腓骨筋(反対・後脛骨筋)', speech: '後脛骨筋(こうけいこつきん)', voice: 'こうけいこつきん' },
 
-  { group: '足底', speech: '次、足底(そくてい)(選手が体制を変えたらウォッチ押す)' },
+  { group: '足底', speech: '次、足底(そくてい)(選手が体制を変えたらウォッチ押す)', voice: '次、そくてい' },
 
-  { group: '腓腹筋', speech: '次、腓腹筋(ひふくきん)(選手が体制を変えたらウォッチ押す)' },
-  { group: '腓腹筋(ヒラメ筋)', speech: 'ヒラメ筋(ひらめきん) ※2024夏合宿よりつま先内側廃止' },
-  { group: '腓腹筋(反対)', speech: '反対腓腹筋(ひふくきん)' },
-  { group: '腓腹筋(反対・ヒラメ筋)', speech: 'ヒラメ筋(ひらめきん) ※2024夏合宿よりつま先内側廃止' },
+  { group: '腓腹筋', speech: '次、腓腹筋(ひふくきん)(選手が体制を変えたらウォッチ押す)', voice: '次、ひふくきん' },
+  { group: '腓腹筋(ヒラメ筋)', speech: 'ヒラメ筋(ひらめきん) ※2024夏合宿よりつま先内側廃止', voice: 'ひらめきん' },
+  { group: '腓腹筋(反対)', speech: '反対腓腹筋(ひふくきん)', voice: '反対、ひふくきん' },
+  { group: '腓腹筋(反対・ヒラメ筋)', speech: 'ヒラメ筋(ひらめきん) ※2024夏合宿よりつま先内側廃止', voice: 'ひらめきん' },
 
-  { group: '前脛骨筋', speech: '次、前脛骨筋(ぜんけいこつきん)(選手が体制を変えたらウォッチ押す)' },
-  { group: '前脛骨筋(反対)', speech: '反対' },
-  { group: '前脛骨筋(終わり)', speech: '終わりです' },
+  { group: '前脛骨筋', speech: '次、前脛骨筋(ぜんけいこつきん)(選手が体制を変えたらウォッチ押す)', voice: '次、ぜんけいこつきん' },
+  { group: '前脛骨筋(反対)', speech: '反対', voice: '反対' },
+  { group: '前脛骨筋(終わり)', speech: '終わりです', voice: '終わりです' },
 ];
 
 const STRETCH_STEP_MS = 30000;
@@ -1079,7 +1085,7 @@ function startNextStretchStep() {
   stretchElapsedMs = 0;
   stretchStartEpoch = Date.now();
   renderStretchUI();
-  speakStretchCue(STRETCH_STEPS[stretchIndex].speech);
+  speakStretchCue(STRETCH_STEPS[stretchIndex].voice);
 }
 
 // For interruptions mid-stretch (a car passing on the road, etc.) — freezes
