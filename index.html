@@ -21,6 +21,7 @@
       <button type="button" class="tab-btn is-active" data-tab="timer">計測</button>
       <button type="button" class="tab-btn" data-tab="pace">距離</button>
       <button type="button" class="tab-btn" data-tab="crossing">山試走</button>
+      <button type="button" class="tab-btn" data-tab="stretch">ストレッチ</button>
     </div>
 
     <div id="timerTab" class="tab-panel is-active">
@@ -96,6 +97,29 @@
           <label class="pace-field"><span>検索範囲 終了</span><input type="text" class="search-end" value="9:00" /></label>
         </div>
         <div class="crossing-result"></div>
+      </div>
+    </div>
+
+    <div id="stretchTab" class="tab-panel" hidden>
+      <div class="stretch-app">
+        <div class="stretch-progress" id="stretchProgress">0 / 0</div>
+
+        <div class="stretch-display-panel">
+          <div class="stretch-timer" id="stretchTimer">0:00</div>
+          <div class="stretch-current-group" id="stretchCurrentGroup">準備中</div>
+          <div class="stretch-current-speech" id="stretchCurrentSpeech">「スタート」を押してください</div>
+        </div>
+
+        <div class="stretch-buttons">
+          <button type="button" class="btn btn-primary stretch-start-btn" id="stretchStartBtn">スタート</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="stretchResetBtn">最初に戻す</button>
+        </div>
+
+        <div class="stretch-next">
+          <div class="stretch-next-label">次は</div>
+          <div class="stretch-next-group" id="stretchNextGroup"></div>
+          <div class="stretch-next-speech" id="stretchNextSpeech"></div>
+        </div>
       </div>
     </div>
   </div>

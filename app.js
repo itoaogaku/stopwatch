@@ -12,6 +12,7 @@ const el = {
     timer: document.getElementById('timerTab'),
     pace: document.getElementById('paceTab'),
     crossing: document.getElementById('crossingTab'),
+    stretch: document.getElementById('stretchTab'),
   },
   paceRows: document.getElementById('paceRows'),
   paceAddRowBtn: document.getElementById('paceAddRowBtn'),
@@ -20,6 +21,14 @@ const el = {
   presetPaceRows: document.querySelectorAll('#presetPaceTable .preset-pace-row'),
   trainRowTemplate: document.getElementById('trainRowTemplate'),
   crossingCards: document.querySelectorAll('.crossing-card'),
+  stretchProgress: document.getElementById('stretchProgress'),
+  stretchTimer: document.getElementById('stretchTimer'),
+  stretchCurrentGroup: document.getElementById('stretchCurrentGroup'),
+  stretchCurrentSpeech: document.getElementById('stretchCurrentSpeech'),
+  stretchNextGroup: document.getElementById('stretchNextGroup'),
+  stretchNextSpeech: document.getElementById('stretchNextSpeech'),
+  stretchStartBtn: document.getElementById('stretchStartBtn'),
+  stretchResetBtn: document.getElementById('stretchResetBtn'),
 };
 
 /* ---------- Tabs ---------- */
@@ -874,6 +883,126 @@ el.crossingCards.forEach((card) => {
   addTrainRow(card, 'BtoA', '7:26', '7:31');
   computeCrossingCard(card);
 });
+
+/* ---------- Stretch-count timer (ストレッチ) ---------- */
+// Flattened from the team's cue sheet: every 30-second segment gets its own
+// entry, in the order the manager reads them aloud. "group" is the short
+// name shown big; "speech" is the exact line to say when that segment starts.
+const STRETCH_STEPS = [
+  { group: '下後鋸筋', speech: '下後鋸筋(かこうきょきん)行きます、よーいはじめ' },
+  { group: '下後鋸筋(反対)', speech: '反対、よーいはじめ' },
+
+  { group: '大臀筋', speech: '次、大臀筋(だいでんきん)(選手が体制を変えたらよーいはじめ)' },
+  { group: '大臀筋(反対)', speech: '反対、よーいはじめ' },
+
+  { group: '梨状筋', speech: '次、梨状筋(りじょうきん)(選手が体制を変えたらウォッチ押す)' },
+  { group: '梨状筋(反対)', speech: '反対' },
+
+  { group: '中臀筋', speech: '次、中臀筋(ちゅうでんきん)(選手が体制を変えたらウォッチ押す)' },
+  { group: '中臀筋(反対)', speech: '反対' },
+
+  { group: '大腿筋膜張筋', speech: '次、大腿筋膜張筋(だいたいきんまくちょうきん)(選手が体制を変えたらウォッチ押す)' },
+  { group: '大腿筋膜張筋(反対)', speech: '反対' },
+
+  { group: 'ハム', speech: '次、ハム(選手が体制を変えたらウォッチ押す)' },
+  { group: 'ハム(内側)', speech: '内側' },
+  { group: 'ハム(外側)', speech: '外側' },
+  { group: 'ハム(反対)', speech: '反対' },
+  { group: 'ハム(反対・内側)', speech: '内側' },
+  { group: 'ハム(反対・外側)', speech: '外側' },
+
+  { group: '内転筋', speech: '次、内転筋(ないてんきん)(選手が体制を変えたらウォッチ押す) ※補強のサーキットなどで内転筋をした場合とばす' },
+  { group: '内転筋(反対)', speech: '反対' },
+
+  { group: '腸骨筋', speech: '次、腸骨筋(ちょうこつきん)(選手が体制を変えたらウォッチ押す)' },
+  { group: '腸骨筋(大腰筋)', speech: '大腰筋(だいようきん)' },
+
+  { group: '反対・腸骨筋', speech: '次、反対、腸骨筋(ちょうこつきん)(選手が体制を変えたらウォッチ押す)' },
+  { group: '反対・腸骨筋(大腰筋)', speech: '大腰筋' },
+
+  { group: '大腿四頭筋', speech: '次、大腿四頭筋(だいたいしとうきん)(選手が体制を変えたらウォッチ押す)' },
+  { group: '大腿四頭筋(反対)', speech: '反対' },
+
+  { group: '腓骨筋', speech: '次、腓骨筋(ひこつきん)(選手が体制を変えたらウォッチ押す)' },
+  { group: '腓骨筋(後脛骨筋)', speech: '後脛骨筋(こうけいこつきん)' },
+  { group: '腓骨筋(反対)', speech: '反対、腓骨筋' },
+  { group: '腓骨筋(反対・後脛骨筋)', speech: '後脛骨筋(こうけいこつきん)' },
+
+  { group: '足底', speech: '次、足底(そくてい)(選手が体制を変えたらウォッチ押す)' },
+  { group: '足底(おわり)', speech: 'おわりです' },
+
+  { group: '腓腹筋', speech: '次、腓腹筋(ひふくきん)(選手が体制を変えたらウォッチ押す)' },
+  { group: '腓腹筋(ヒラメ筋)', speech: 'ヒラメ筋(ひらめきん) ※2024夏合宿よりつま先内側廃止' },
+  { group: '腓腹筋(反対)', speech: '反対腓腹筋(ひふくきん)' },
+  { group: '腓腹筋(反対・ヒラメ筋)', speech: 'ヒラメ筋(ひらめきん) ※2024夏合宿よりつま先内側廃止' },
+
+  { group: '前脛骨筋', speech: '次、前脛骨筋(ぜんけいこつきん)(選手が体制を変えたらウォッチ押す)' },
+  { group: '前脛骨筋(反対)', speech: '反対' },
+  { group: '前脛骨筋(終わり)', speech: '終わりです' },
+];
+
+let stretchIndex = -1; // -1 = not started yet
+let stretchRunning = false;
+let stretchStartEpoch = 0;
+
+function formatStretchTimer(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const seconds = totalSeconds % 60;
+  const minutes = Math.floor(totalSeconds / 60);
+  const pad2 = (n) => String(n).padStart(2, '0');
+  return `${minutes}:${pad2(seconds)}`;
+}
+
+function renderStretchUI() {
+  const current = stretchIndex >= 0 ? STRETCH_STEPS[stretchIndex] : null;
+  const next = stretchIndex + 1 < STRETCH_STEPS.length ? STRETCH_STEPS[stretchIndex + 1] : null;
+
+  el.stretchCurrentGroup.textContent = current ? current.group : '準備中';
+  el.stretchCurrentSpeech.textContent = current ? current.speech : '「スタート」を押してください';
+  el.stretchNextGroup.textContent = next ? next.group : stretchIndex >= 0 ? 'これで終わりです' : STRETCH_STEPS[0].group;
+  el.stretchNextSpeech.textContent = next ? next.speech : stretchIndex >= 0 ? '' : STRETCH_STEPS[0].speech;
+  el.stretchProgress.textContent = `${Math.max(stretchIndex + 1, 0)} / ${STRETCH_STEPS.length}`;
+  el.stretchStartBtn.textContent = stretchIndex === -1 ? 'スタート' : '次へ(スタート)';
+
+  if (!stretchRunning) {
+    el.stretchTimer.textContent = '0:00';
+    el.stretchTimer.classList.remove('is-overtime');
+  }
+}
+
+function startNextStretchStep() {
+  stretchIndex += 1;
+  if (stretchIndex >= STRETCH_STEPS.length) {
+    stretchIndex = -1;
+    stretchRunning = false;
+    renderStretchUI();
+    return;
+  }
+  stretchRunning = true;
+  stretchStartEpoch = Date.now();
+  renderStretchUI();
+}
+
+function resetStretch() {
+  stretchIndex = -1;
+  stretchRunning = false;
+  renderStretchUI();
+}
+
+function tickStretch() {
+  if (stretchRunning) {
+    const elapsedMs = Date.now() - stretchStartEpoch;
+    el.stretchTimer.textContent = formatStretchTimer(elapsedMs);
+    el.stretchTimer.classList.toggle('is-overtime', elapsedMs >= 30000);
+  }
+  requestAnimationFrame(tickStretch);
+}
+
+el.stretchStartBtn.addEventListener('click', startNextStretchStep);
+el.stretchResetBtn.addEventListener('click', resetStretch);
+
+renderStretchUI();
+requestAnimationFrame(tickStretch);
 
 // Runs immediately (the script tag sits at the end of <body>, so the DOM is
 // already parsed) rather than waiting for window "load", so the "全て
