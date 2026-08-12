@@ -1165,10 +1165,19 @@ function pickRecordingMimeType() {
   return ''; // let the browser pick its default
 }
 
+// Groups steps by their exact spoken text — "反対" alone is read at ~8
+// different steps, "終わり" for every step's auto-stop, etc. — so one
+// recording covers every step that says the same thing, instead of making
+// the manager record the same word over and over.
 function buildRecordingItems() {
-  const items = STRETCH_STEPS.map((step, i) => ({ id: String(i), group: step.group, text: step.voice }));
-  items.push({ id: 'end', group: '(共通)終わりの合図', text: '終わり' });
-  return items;
+  const byText = new Map(); // text -> groupNames[]
+  STRETCH_STEPS.forEach((step) => {
+    if (!byText.has(step.voice)) byText.set(step.voice, []);
+    byText.get(step.voice).push(step.group);
+  });
+  if (!byText.has('終わり')) byText.set('終わり', []);
+  byText.get('終わり').push('(共通)終わりの合図');
+  return Array.from(byText.entries()).map(([text, groupNames]) => ({ id: text, text, groupNames }));
 }
 
 function stopAnyPlayback() {
@@ -1187,8 +1196,8 @@ function createRecordingRow(item) {
   const playBtn = node.querySelector('.recording-play-btn');
   const deleteBtn = node.querySelector('.recording-delete-btn');
 
-  groupEl.textContent = item.group;
-  textEl.textContent = item.text;
+  groupEl.textContent = item.text;
+  textEl.textContent = `使用箇所: ${item.groupNames.join('、')}`;
 
   function refreshRowStatus() {
     const has = recordingsMap.has(item.id);
@@ -1266,18 +1275,20 @@ async function toggleRecording(id, btn, refreshRowStatus) {
   recorder.start();
 }
 
-// Prefers a recorded take for this cue; falls back to speechSynthesis when
-// nothing's been recorded yet.
-function announceStretchCue(id, fallbackText) {
+// Prefers a recorded take for this exact cue text; falls back to
+// speechSynthesis when nothing's been recorded yet. Recordings are keyed by
+// the spoken text itself, so every step that says e.g. "反対" shares one
+// recording automatically.
+function announceStretchCue(text) {
   stopAnyPlayback();
-  const blob = recordingsMap.get(id);
+  const blob = recordingsMap.get(text);
   if (blob) {
     const audio = new Audio(URL.createObjectURL(blob));
     currentPlaybackAudio = audio;
     audio.play();
     return;
   }
-  speakStretchCue(fallbackText);
+  speakStretchCue(text);
 }
 
 if (!recordingSupported) {
@@ -1352,7 +1363,7 @@ function startNextStretchStep() {
   stretchElapsedMs = 0;
   stretchStartEpoch = Date.now();
   renderStretchUI();
-  announceStretchCue(String(stretchIndex), STRETCH_STEPS[stretchIndex].voice);
+  announceStretchCue(STRETCH_STEPS[stretchIndex].voice);
 }
 
 // For interruptions mid-stretch (a car passing on the road, etc.) — freezes
@@ -1383,7 +1394,7 @@ function tickStretch() {
       stretchElapsedMs = STRETCH_STEP_MS;
       stretchRunning = false;
       renderStretchUI();
-      announceStretchCue('end', '終わり');
+      announceStretchCue('終わり');
     } else {
       updateStretchTimerDisplay();
     }
