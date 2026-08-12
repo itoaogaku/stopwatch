@@ -25,6 +25,10 @@ const el = {
   stretchProgress: document.getElementById('stretchProgress'),
   stretchVoiceToggle: document.getElementById('stretchVoiceToggle'),
   stretchVoiceSelect: document.getElementById('stretchVoiceSelect'),
+  stretchRecordingsToggle: document.getElementById('stretchRecordingsToggle'),
+  stretchRecordingsPanel: document.getElementById('stretchRecordingsPanel'),
+  stretchRecordingsList: document.getElementById('stretchRecordingsList'),
+  recordingRowTemplate: document.getElementById('recordingRowTemplate'),
   stretchTimer: document.getElementById('stretchTimer'),
   stretchCurrentGroup: document.getElementById('stretchCurrentGroup'),
   stretchNextGroup: document.getElementById('stretchNextGroup'),
@@ -1087,6 +1091,205 @@ el.stretchVoiceToggle.addEventListener('click', () => {
 });
 renderStretchVoiceToggle();
 
+/* ---------- Stretch cue recordings (自分の声で録音) ---------- */
+// Lets the manager record their own voice for each cue instead of relying on
+// speechSynthesis. Recordings are saved as audio Blobs in IndexedDB, the only
+// persistent storage in this app — everything else here is deliberately
+// stateless, but there's no other way to keep a recording across reloads.
+const RECORDINGS_DB_NAME = 'stretchRecordings';
+const RECORDINGS_STORE_NAME = 'recordings';
+const recordingSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+const recordingsMap = new Map(); // id -> Blob
+let currentPlaybackAudio = null;
+let activeRecording = null; // { id, recorder, stream, chunks } while recording is in progress
+
+function openRecordingsDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(RECORDINGS_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore(RECORDINGS_STORE_NAME);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function loadAllRecordings() {
+  const db = await openRecordingsDB();
+  return new Promise((resolve, reject) => {
+    const store = db.transaction(RECORDINGS_STORE_NAME, 'readonly').objectStore(RECORDINGS_STORE_NAME);
+    const request = store.getAllKeys();
+    request.onsuccess = () => {
+      const keys = request.result;
+      const getAll = store.getAll ? store.getAll() : null;
+      if (getAll) {
+        getAll.onsuccess = () => {
+          keys.forEach((key, i) => recordingsMap.set(key, getAll.result[i]));
+          resolve();
+        };
+        getAll.onerror = () => reject(getAll.error);
+      } else {
+        resolve();
+      }
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function saveRecordingToDB(id, blob) {
+  const db = await openRecordingsDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(RECORDINGS_STORE_NAME, 'readwrite');
+    tx.objectStore(RECORDINGS_STORE_NAME).put(blob, id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function deleteRecordingFromDB(id) {
+  const db = await openRecordingsDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(RECORDINGS_STORE_NAME, 'readwrite');
+    tx.objectStore(RECORDINGS_STORE_NAME).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function pickRecordingMimeType() {
+  const candidates = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'];
+  for (const type of candidates) {
+    if (window.MediaRecorder.isTypeSupported && window.MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return ''; // let the browser pick its default
+}
+
+function buildRecordingItems() {
+  const items = STRETCH_STEPS.map((step, i) => ({ id: String(i), group: step.group, text: step.voice }));
+  items.push({ id: 'end', group: '(共通)終わりの合図', text: '終わり' });
+  return items;
+}
+
+function stopAnyPlayback() {
+  if (currentPlaybackAudio) {
+    currentPlaybackAudio.pause();
+    currentPlaybackAudio = null;
+  }
+}
+
+function createRecordingRow(item) {
+  const node = el.recordingRowTemplate.content.firstElementChild.cloneNode(true);
+  const groupEl = node.querySelector('.recording-row-group');
+  const statusEl = node.querySelector('.recording-row-status');
+  const textEl = node.querySelector('.recording-row-text');
+  const recordBtn = node.querySelector('.recording-record-btn');
+  const playBtn = node.querySelector('.recording-play-btn');
+  const deleteBtn = node.querySelector('.recording-delete-btn');
+
+  groupEl.textContent = item.group;
+  textEl.textContent = item.text;
+
+  function refreshRowStatus() {
+    const has = recordingsMap.has(item.id);
+    node.classList.toggle('is-recorded', has);
+    statusEl.textContent = has ? '録音済み' : '未録音';
+    playBtn.disabled = !has;
+    deleteBtn.disabled = !has;
+  }
+  refreshRowStatus();
+
+  recordBtn.addEventListener('click', () => toggleRecording(item.id, recordBtn, refreshRowStatus));
+
+  playBtn.addEventListener('click', () => {
+    const blob = recordingsMap.get(item.id);
+    if (!blob) return;
+    stopAnyPlayback();
+    const audio = new Audio(URL.createObjectURL(blob));
+    currentPlaybackAudio = audio;
+    audio.play();
+  });
+
+  deleteBtn.addEventListener('click', async () => {
+    recordingsMap.delete(item.id);
+    refreshRowStatus();
+    await deleteRecordingFromDB(item.id);
+  });
+
+  return node;
+}
+
+function buildAllRecordingRows() {
+  el.stretchRecordingsList.innerHTML = '';
+  buildRecordingItems().forEach((item) => {
+    el.stretchRecordingsList.appendChild(createRecordingRow(item));
+  });
+}
+
+async function toggleRecording(id, btn, refreshRowStatus) {
+  if (activeRecording && activeRecording.id === id) {
+    activeRecording.recorder.stop(); // onstop handles saving + cleanup
+    return;
+  }
+  if (activeRecording) return; // one recording at a time
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    alert('マイクを使用できませんでした。ブラウザの設定でマイクへのアクセスを許可してください。');
+    return;
+  }
+
+  const mimeType = pickRecordingMimeType();
+  const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+  const chunks = [];
+  recorder.addEventListener('dataavailable', (e) => {
+    if (e.data && e.data.size > 0) chunks.push(e.data);
+  });
+  recorder.addEventListener('stop', async () => {
+    stream.getTracks().forEach((track) => track.stop());
+    activeRecording = null;
+    btn.classList.remove('is-recording');
+    btn.textContent = '🔴 録音';
+    const blob = new Blob(chunks, { type: recorder.mimeType || mimeType || 'audio/webm' });
+    if (blob.size > 0) {
+      recordingsMap.set(id, blob);
+      refreshRowStatus();
+      await saveRecordingToDB(id, blob);
+    }
+  });
+
+  activeRecording = { id, recorder, stream, chunks };
+  btn.classList.add('is-recording');
+  btn.textContent = '⏹ 停止';
+  recorder.start();
+}
+
+// Prefers a recorded take for this cue; falls back to speechSynthesis when
+// nothing's been recorded yet.
+function announceStretchCue(id, fallbackText) {
+  stopAnyPlayback();
+  const blob = recordingsMap.get(id);
+  if (blob) {
+    const audio = new Audio(URL.createObjectURL(blob));
+    currentPlaybackAudio = audio;
+    audio.play();
+    return;
+  }
+  speakStretchCue(fallbackText);
+}
+
+if (!recordingSupported) {
+  el.stretchRecordingsToggle.disabled = true;
+  el.stretchRecordingsToggle.title = 'この端末は録音に対応していません';
+} else {
+  buildAllRecordingRows();
+  loadAllRecordings().then(buildAllRecordingRows).catch(() => {});
+}
+el.stretchRecordingsToggle.addEventListener('click', () => {
+  el.stretchRecordingsPanel.hidden = !el.stretchRecordingsPanel.hidden;
+});
+
 function currentStretchElapsedMs() {
   if (!stretchRunning) return stretchElapsedMs;
   return stretchElapsedMs + (Date.now() - stretchStartEpoch);
@@ -1139,7 +1342,7 @@ function startNextStretchStep() {
   stretchElapsedMs = 0;
   stretchStartEpoch = Date.now();
   renderStretchUI();
-  speakStretchCue(STRETCH_STEPS[stretchIndex].voice);
+  announceStretchCue(String(stretchIndex), STRETCH_STEPS[stretchIndex].voice);
 }
 
 // For interruptions mid-stretch (a car passing on the road, etc.) — freezes
@@ -1170,7 +1373,7 @@ function tickStretch() {
       stretchElapsedMs = STRETCH_STEP_MS;
       stretchRunning = false;
       renderStretchUI();
-      speakStretchCue('終わり');
+      announceStretchCue('end', '終わり');
     } else {
       updateStretchTimerDisplay();
     }

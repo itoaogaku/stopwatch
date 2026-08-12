@@ -113,6 +113,13 @@
           <select id="stretchVoiceSelect"></select>
         </label>
 
+        <button type="button" class="btn btn-ghost btn-sm" id="stretchRecordingsToggle">🎙 セリフを自分の声で録音する</button>
+
+        <div id="stretchRecordingsPanel" class="stretch-recordings-panel" hidden>
+          <p class="pace-desc">各セリフを自分の声で録音しておくと、再生時はその録音を優先して再生します(未録音の項目は今まで通り音声合成で読み上げます)。録音はこの端末のブラウザ内に保存され、次に開いたときも残ります。</p>
+          <div id="stretchRecordingsList" class="stretch-recordings-list"></div>
+        </div>
+
         <div class="stretch-display-panel">
           <div class="stretch-timer" id="stretchTimer">0:00</div>
           <div class="stretch-current-group" id="stretchCurrentGroup">準備中</div>
@@ -203,6 +210,21 @@
           <span class="pace-metric-label">スタート回避</span>
           <span class="train-avoid">--</span>
         </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="recordingRowTemplate">
+    <div class="recording-row">
+      <div class="recording-row-top">
+        <span class="recording-row-group"></span>
+        <span class="recording-row-status">未録音</span>
+      </div>
+      <div class="recording-row-text"></div>
+      <div class="recording-row-buttons">
+        <button type="button" class="btn btn-ghost btn-sm recording-record-btn">🔴 録音</button>
+        <button type="button" class="btn btn-ghost btn-sm recording-play-btn" disabled>▶️ 再生</button>
+        <button type="button" class="btn btn-ghost btn-sm recording-delete-btn" disabled>🗑 削除</button>
       </div>
     </div>
   </template>
