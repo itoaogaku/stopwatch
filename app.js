@@ -1009,11 +1009,35 @@ let stretchStartEpoch = 0; // epoch when the current running span began
 // themselves. Unlike the Vibration API, speechSynthesis works on iOS Safari.
 let stretchVoiceEnabled = 'speechSynthesis' in window;
 
+// The Web Speech API can only use voices already installed on the device —
+// there's no way to swap in a different synthesis engine from a static page.
+// What we CAN do: prefer whichever installed Japanese voice sounds least
+// robotic (iOS/macOS ship both a compact default and higher-quality
+// "Enhanced"/"Premium" voices once downloaded), and tune rate/pitch to a
+// more natural-sounding pace instead of the default clipped cadence.
+let cachedJaVoice = null;
+function pickBestJapaneseVoice() {
+  const voices = window.speechSynthesis.getVoices();
+  const jaVoices = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith('ja'));
+  if (jaVoices.length === 0) return null;
+  const preferred = jaVoices.find((v) => /premium|enhanced|neural|siri/i.test(v.name));
+  return preferred || jaVoices[0];
+}
+if ('speechSynthesis' in window) {
+  cachedJaVoice = pickBestJapaneseVoice();
+  window.speechSynthesis.addEventListener('voiceschanged', () => {
+    cachedJaVoice = pickBestJapaneseVoice();
+  });
+}
+
 function speakStretchCue(text) {
   if (!stretchVoiceEnabled || !('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel(); // don't let a fast "次へ" tap queue up overlapping lines
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'ja-JP';
+  if (cachedJaVoice) utterance.voice = cachedJaVoice;
+  utterance.rate = 0.95;
+  utterance.pitch = 1.0;
   window.speechSynthesis.speak(utterance);
 }
 
