@@ -24,7 +24,6 @@ const el = {
   stretchProgress: document.getElementById('stretchProgress'),
   stretchTimer: document.getElementById('stretchTimer'),
   stretchCurrentGroup: document.getElementById('stretchCurrentGroup'),
-  stretchCurrentSpeech: document.getElementById('stretchCurrentSpeech'),
   stretchNextGroup: document.getElementById('stretchNextGroup'),
   stretchNextSpeech: document.getElementById('stretchNextSpeech'),
   stretchStartBtn: document.getElementById('stretchStartBtn'),
@@ -972,7 +971,6 @@ function renderStretchUI() {
   const next = stretchIndex + 1 < STRETCH_STEPS.length ? STRETCH_STEPS[stretchIndex + 1] : null;
 
   el.stretchCurrentGroup.textContent = current ? current.group : '準備中';
-  el.stretchCurrentSpeech.textContent = current ? current.speech : '「スタート」を押してください';
   el.stretchNextGroup.textContent = next ? next.group : stretchIndex >= 0 ? 'これで終わりです' : STRETCH_STEPS[0].group;
   el.stretchNextSpeech.textContent = next ? next.speech : stretchIndex >= 0 ? '' : STRETCH_STEPS[0].speech;
   el.stretchProgress.textContent = `${Math.max(stretchIndex + 1, 0)} / ${STRETCH_STEPS.length}`;

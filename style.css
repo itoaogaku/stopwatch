@@ -839,13 +839,6 @@ html, body {
   font-weight: 800;
 }
 
-.stretch-current-speech {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--lcd-ink-dim);
-  line-height: 1.4;
-}
-
 .stretch-buttons {
   width: 100%;
   display: flex;
@@ -862,7 +855,7 @@ html, body {
 .stretch-start-btn {
   width: 100%;
   min-height: 192px;
-  font-size: 54px;
+  font-size: 28px;
 }
 
 .stretch-next {
