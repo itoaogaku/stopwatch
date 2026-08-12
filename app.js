@@ -13,6 +13,7 @@ const el = {
     pace: document.getElementById('paceTab'),
     crossing: document.getElementById('crossingTab'),
     stretch: document.getElementById('stretchTab'),
+    tabata: document.getElementById('tabataTab'),
   },
   paceRows: document.getElementById('paceRows'),
   paceAddRowBtn: document.getElementById('paceAddRowBtn'),
@@ -29,6 +30,12 @@ const el = {
   stretchStartBtn: document.getElementById('stretchStartBtn'),
   stretchPauseBtn: document.getElementById('stretchPauseBtn'),
   stretchResetBtn: document.getElementById('stretchResetBtn'),
+  tabataProgress: document.getElementById('tabataProgress'),
+  tabataDisplayPanel: document.getElementById('tabataDisplayPanel'),
+  tabataPhase: document.getElementById('tabataPhase'),
+  tabataTimer: document.getElementById('tabataTimer'),
+  tabataStartBtn: document.getElementById('tabataStartBtn'),
+  tabataResetBtn: document.getElementById('tabataResetBtn'),
 };
 
 /* ---------- Tabs ---------- */
@@ -1042,6 +1049,97 @@ el.stretchResetBtn.addEventListener('click', resetStretch);
 
 renderStretchUI();
 requestAnimationFrame(tickStretch);
+
+/* ---------- TABATA timer ---------- */
+// Unlike the manually-advanced stretch timer, TABATA is meant to run
+// hands-free once started: 20s training / 10s rest, repeated for 8 sets,
+// auto-advancing on its own.
+const TABATA_TRAIN_SEC = 20;
+const TABATA_REST_SEC = 10;
+const TABATA_SETS = 8;
+const TABATA_PHASES = [];
+for (let set = 1; set <= TABATA_SETS; set++) {
+  TABATA_PHASES.push({ type: 'train', set, duration: TABATA_TRAIN_SEC });
+  TABATA_PHASES.push({ type: 'rest', set, duration: TABATA_REST_SEC });
+}
+
+let tabataIndex = -1; // -1 = not started, TABATA_PHASES.length = finished
+let tabataRunning = false;
+let tabataPhaseStartEpoch = 0;
+
+function updateTabataTimerDisplay() {
+  const phase = TABATA_PHASES[tabataIndex];
+  const elapsedMs = Date.now() - tabataPhaseStartEpoch;
+  const remainingSec = Math.max(0, phase.duration - Math.floor(elapsedMs / 1000));
+  el.tabataTimer.textContent = String(remainingSec);
+}
+
+function renderTabataUI() {
+  const idle = tabataIndex === -1;
+  const finished = tabataIndex >= TABATA_PHASES.length;
+  const phase = !idle && !finished ? TABATA_PHASES[tabataIndex] : null;
+
+  el.tabataProgress.textContent = `セット ${phase ? phase.set : finished ? TABATA_SETS : 0} / ${TABATA_SETS}`;
+  el.tabataPhase.textContent = phase ? (phase.type === 'train' ? 'トレーニング' : 'レスト') : finished ? '完了!' : 'スタート待ち';
+  el.tabataDisplayPanel.classList.toggle('is-train', !!phase && phase.type === 'train');
+  el.tabataDisplayPanel.classList.toggle('is-rest', !!phase && phase.type === 'rest');
+  el.tabataStartBtn.disabled = !!phase;
+  el.tabataStartBtn.textContent = phase ? '実行中' : idle ? 'スタート' : 'もう一度';
+
+  if (phase) {
+    updateTabataTimerDisplay();
+  } else {
+    el.tabataTimer.textContent = idle ? String(TABATA_TRAIN_SEC) : '0';
+  }
+}
+
+function advanceTabataPhase() {
+  tabataIndex += 1;
+  if (tabataIndex >= TABATA_PHASES.length) {
+    tabataRunning = false;
+    renderTabataUI();
+    if ('vibrate' in navigator) navigator.vibrate([200, 100, 200, 100, 200]);
+    return;
+  }
+  tabataPhaseStartEpoch = Date.now();
+  renderTabataUI();
+  if ('vibrate' in navigator) {
+    navigator.vibrate(TABATA_PHASES[tabataIndex].type === 'train' ? [300] : [150, 100, 150]);
+  }
+}
+
+function startTabata() {
+  if (tabataRunning) return;
+  tabataIndex = 0;
+  tabataRunning = true;
+  tabataPhaseStartEpoch = Date.now();
+  renderTabataUI();
+  if ('vibrate' in navigator) navigator.vibrate([300]);
+}
+
+function resetTabata() {
+  tabataIndex = -1;
+  tabataRunning = false;
+  renderTabataUI();
+}
+
+function tickTabata() {
+  if (tabataRunning && tabataIndex >= 0 && tabataIndex < TABATA_PHASES.length) {
+    const phase = TABATA_PHASES[tabataIndex];
+    if (Date.now() - tabataPhaseStartEpoch >= phase.duration * 1000) {
+      advanceTabataPhase();
+    } else {
+      updateTabataTimerDisplay();
+    }
+  }
+  requestAnimationFrame(tickTabata);
+}
+
+el.tabataStartBtn.addEventListener('click', startTabata);
+el.tabataResetBtn.addEventListener('click', resetTabata);
+
+renderTabataUI();
+requestAnimationFrame(tickTabata);
 
 // Runs immediately (the script tag sits at the end of <body>, so the DOM is
 // already parsed) rather than waiting for window "load", so the "全て

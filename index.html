@@ -22,6 +22,7 @@
       <button type="button" class="tab-btn" data-tab="pace">距離</button>
       <button type="button" class="tab-btn" data-tab="crossing">山試走</button>
       <button type="button" class="tab-btn" data-tab="stretch">ストレッチ</button>
+      <button type="button" class="tab-btn" data-tab="tabata">TABATA</button>
     </div>
 
     <div id="timerTab" class="tab-panel is-active">
@@ -121,6 +122,22 @@
             <button type="button" class="btn btn-ghost btn-sm" id="stretchPauseBtn" disabled>一時停止</button>
             <button type="button" class="btn btn-ghost btn-sm" id="stretchResetBtn">最初に戻す</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tabataTab" class="tab-panel" hidden>
+      <div class="tabata-app">
+        <div class="tabata-progress" id="tabataProgress">セット 0 / 8</div>
+
+        <div class="tabata-display-panel" id="tabataDisplayPanel">
+          <div class="tabata-phase" id="tabataPhase">スタート待ち</div>
+          <div class="tabata-timer" id="tabataTimer">20</div>
+        </div>
+
+        <div class="tabata-buttons">
+          <button type="button" class="btn btn-primary tabata-start-btn" id="tabataStartBtn">スタート</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="tabataResetBtn">リセット</button>
         </div>
       </div>
     </div>
