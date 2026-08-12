@@ -852,6 +852,13 @@ html, body {
   flex-direction: column;
   gap: 8px;
 }
+.stretch-buttons-row {
+  display: flex;
+  gap: 8px;
+}
+.stretch-buttons-row .btn {
+  flex: 1 1 0;
+}
 .stretch-start-btn {
   width: 100%;
   min-height: 64px;

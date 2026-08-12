@@ -28,6 +28,7 @@ const el = {
   stretchNextGroup: document.getElementById('stretchNextGroup'),
   stretchNextSpeech: document.getElementById('stretchNextSpeech'),
   stretchStartBtn: document.getElementById('stretchStartBtn'),
+  stretchPauseBtn: document.getElementById('stretchPauseBtn'),
   stretchResetBtn: document.getElementById('stretchResetBtn'),
 };
 
@@ -940,9 +941,17 @@ const STRETCH_STEPS = [
   { group: '前脛骨筋(終わり)', speech: '終わりです' },
 ];
 
+const STRETCH_STEP_MS = 30000;
+
 let stretchIndex = -1; // -1 = not started yet
 let stretchRunning = false;
-let stretchStartEpoch = 0;
+let stretchElapsedMs = 0; // accumulated time for the current step, while paused/stopped
+let stretchStartEpoch = 0; // epoch when the current running span began
+
+function currentStretchElapsedMs() {
+  if (!stretchRunning) return stretchElapsedMs;
+  return stretchElapsedMs + (Date.now() - stretchStartEpoch);
+}
 
 function formatStretchTimer(ms) {
   const totalSeconds = Math.floor(ms / 1000);
@@ -950,6 +959,12 @@ function formatStretchTimer(ms) {
   const minutes = Math.floor(totalSeconds / 60);
   const pad2 = (n) => String(n).padStart(2, '0');
   return `${minutes}:${pad2(seconds)}`;
+}
+
+function updateStretchTimerDisplay() {
+  const elapsedMs = stretchIndex === -1 ? 0 : Math.min(currentStretchElapsedMs(), STRETCH_STEP_MS);
+  el.stretchTimer.textContent = formatStretchTimer(elapsedMs);
+  el.stretchTimer.classList.toggle('is-overtime', elapsedMs >= STRETCH_STEP_MS);
 }
 
 function renderStretchUI() {
@@ -962,11 +977,9 @@ function renderStretchUI() {
   el.stretchNextSpeech.textContent = next ? next.speech : stretchIndex >= 0 ? '' : STRETCH_STEPS[0].speech;
   el.stretchProgress.textContent = `${Math.max(stretchIndex + 1, 0)} / ${STRETCH_STEPS.length}`;
   el.stretchStartBtn.textContent = stretchIndex === -1 ? 'スタート' : '次へ(スタート)';
-
-  if (!stretchRunning) {
-    el.stretchTimer.textContent = '0:00';
-    el.stretchTimer.classList.remove('is-overtime');
-  }
+  el.stretchPauseBtn.disabled = stretchIndex === -1;
+  el.stretchPauseBtn.textContent = stretchRunning ? '一時停止' : '再開';
+  updateStretchTimerDisplay();
 }
 
 function startNextStretchStep() {
@@ -974,30 +987,53 @@ function startNextStretchStep() {
   if (stretchIndex >= STRETCH_STEPS.length) {
     stretchIndex = -1;
     stretchRunning = false;
+    stretchElapsedMs = 0;
     renderStretchUI();
     return;
   }
   stretchRunning = true;
+  stretchElapsedMs = 0;
   stretchStartEpoch = Date.now();
+  renderStretchUI();
+}
+
+// For interruptions mid-stretch (a car passing on the road, etc.) — freezes
+// the current step's elapsed time in place rather than losing it.
+function toggleStretchPause() {
+  if (stretchIndex === -1) return;
+  if (stretchRunning) {
+    stretchElapsedMs = currentStretchElapsedMs();
+    stretchRunning = false;
+  } else {
+    stretchStartEpoch = Date.now();
+    stretchRunning = true;
+  }
   renderStretchUI();
 }
 
 function resetStretch() {
   stretchIndex = -1;
   stretchRunning = false;
+  stretchElapsedMs = 0;
   renderStretchUI();
 }
 
 function tickStretch() {
   if (stretchRunning) {
-    const elapsedMs = Date.now() - stretchStartEpoch;
-    el.stretchTimer.textContent = formatStretchTimer(elapsedMs);
-    el.stretchTimer.classList.toggle('is-overtime', elapsedMs >= 30000);
+    if (currentStretchElapsedMs() >= STRETCH_STEP_MS) {
+      // Auto-stop right at 30s instead of counting up indefinitely.
+      stretchElapsedMs = STRETCH_STEP_MS;
+      stretchRunning = false;
+      renderStretchUI();
+    } else {
+      updateStretchTimerDisplay();
+    }
   }
   requestAnimationFrame(tickStretch);
 }
 
 el.stretchStartBtn.addEventListener('click', startNextStretchStep);
+el.stretchPauseBtn.addEventListener('click', toggleStretchPause);
 el.stretchResetBtn.addEventListener('click', resetStretch);
 
 renderStretchUI();
