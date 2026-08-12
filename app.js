@@ -28,6 +28,7 @@ const el = {
   stretchVoiceSelect: document.getElementById('stretchVoiceSelect'),
   stretchRecordingsToggle: document.getElementById('stretchRecordingsToggle'),
   stretchRecordingsModal: document.getElementById('stretchRecordingsModal'),
+  stretchRecordingsModalTitle: document.getElementById('stretchRecordingsModalTitle'),
   stretchRecordingsCloseBtn: document.getElementById('stretchRecordingsCloseBtn'),
   stretchRecordingsList: document.getElementById('stretchRecordingsList'),
   recordingRowTemplate: document.getElementById('recordingRowTemplate'),
@@ -1120,19 +1121,27 @@ let voiceEnabled = true;
 // Settings > Accessibility (that setting only affects VoiceOver/Speak
 // Screen, not web pages). So instead of guessing, let the user see exactly
 // what's available in THIS browser and pick directly, with a live preview.
-let selectedVoiceURI = null;
+// ストレッチ・補強はそれぞれ完全に独立した録音プールを持つため(同じ
+// 「反対」でも別収録として扱う)、選んだ声もタブごとに別々に覚えておく。
+const CATEGORIES = ['stretch', 'reinforce'];
+const selectedVoiceURIByCategory = { stretch: null, reinforce: null };
 
 // Recordings are grouped into named "sets" (e.g. one per coach) so several
 // complete recordings can coexist and be switched between for playback,
 // rather than the whole team sharing one anonymous pool. Selecting a set's
-// entry in the same dropdown, listed below the synthesized voices, switches
+// entry in the dropdown, listed below the synthesized voices, switches
 // playback to that set's recorded human audio (this device's own copy,
 // falling back to the team's shared copy) instead of speechSynthesis. The
-// value format is "recorded:<set name>".
+// value format is "recorded:<set name>". Sets are also scoped per category
+// for the same reason the voice choice is.
 const DEFAULT_SET_NAME = 'デフォルト(これまでの録音)'; // pre-existing recordings from before sets existed
 const RECORDED_VOICE_PREFIX = 'recorded:';
-const knownSets = new Set([DEFAULT_SET_NAME]); // every set name seen so far, local or shared
-let activeRecordingSetId = DEFAULT_SET_NAME; // which set the recordings modal is currently viewing/recording into
+const knownSetsByCategory = {
+  stretch: new Set([DEFAULT_SET_NAME]),
+  reinforce: new Set([DEFAULT_SET_NAME]),
+}; // every set name seen so far in each category, local or shared
+const activeRecordingSetIdByCategory = { stretch: DEFAULT_SET_NAME, reinforce: DEFAULT_SET_NAME }; // which set each category's recordings modal is currently viewing/recording into
+let activeRecordingCategory = 'stretch'; // which category's recordings modal is currently open
 
 function recordedVoiceValue(setName) {
   return RECORDED_VOICE_PREFIX + setName;
@@ -1144,74 +1153,80 @@ function setNameFromVoiceValue(value) {
   return value.slice(RECORDED_VOICE_PREFIX.length);
 }
 
-// ストレッチ・補強タブそれぞれに同じ操作を置いているので、両方のUI要素を
-// まとめて同期させる。どちらか一方が無いページ構成でも動くようフィルタする。
-const voiceSelects = [el.stretchVoiceSelect, el.reinforceVoiceSelect].filter(Boolean);
-const voiceToggles = [el.stretchVoiceToggle, el.reinforceVoiceToggle].filter(Boolean);
+const voiceSelectByCategory = { stretch: el.stretchVoiceSelect, reinforce: el.reinforceVoiceSelect };
+const voiceToggles = [el.stretchVoiceToggle, el.reinforceVoiceToggle].filter(Boolean); // mute is one shared, device-wide setting
 
-function populateVoiceSelect() {
+function populateVoiceSelect(category) {
+  const select = voiceSelectByCategory[category];
+  if (!select) return;
+
   const voices = 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : [];
   const jaVoices = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith('ja'));
   const list = jaVoices.length > 0 ? jaVoices : voices;
+  const knownSets = knownSetsByCategory[category];
 
-  if (isRecordedVoiceValue(selectedVoiceURI)) {
-    if (!knownSets.has(setNameFromVoiceValue(selectedVoiceURI))) {
-      selectedVoiceURI = recordedVoiceValue(DEFAULT_SET_NAME); // its set was deleted — fall back to the default set
+  let selected = selectedVoiceURIByCategory[category];
+  if (isRecordedVoiceValue(selected)) {
+    if (!knownSets.has(setNameFromVoiceValue(selected))) {
+      selected = recordedVoiceValue(DEFAULT_SET_NAME); // its set was deleted — fall back to the default set
     }
   } else {
-    const stillAvailable = selectedVoiceURI && list.some((v) => v.voiceURI === selectedVoiceURI);
+    const stillAvailable = selected && list.some((v) => v.voiceURI === selected);
     if (!stillAvailable) {
       if (list.length > 0) {
         const preferred = list.find((v) => /premium|enhanced|neural|siri/i.test(v.name)) || list[0];
-        selectedVoiceURI = preferred.voiceURI;
+        selected = preferred.voiceURI;
       } else {
-        selectedVoiceURI = recordedVoiceValue(DEFAULT_SET_NAME); // no synthesized voice available at all — recordings are the only option
+        selected = recordedVoiceValue(DEFAULT_SET_NAME); // no synthesized voice available at all — recordings are the only option
       }
     }
   }
+  selectedVoiceURIByCategory[category] = selected;
 
-  voiceSelects.forEach((select) => {
-    select.innerHTML = '';
-    select.disabled = false;
-    list.forEach((v) => {
-      const opt = document.createElement('option');
-      opt.value = v.voiceURI;
-      opt.textContent = `${v.name} (${v.lang})`;
-      select.appendChild(opt);
-    });
-    knownSets.forEach((setName) => {
-      const opt = document.createElement('option');
-      opt.value = recordedVoiceValue(setName);
-      opt.textContent = `🎙 ${setName}`;
-      select.appendChild(opt);
-    });
-    select.value = selectedVoiceURI;
+  select.innerHTML = '';
+  select.disabled = false;
+  list.forEach((v) => {
+    const opt = document.createElement('option');
+    opt.value = v.voiceURI;
+    opt.textContent = `${v.name} (${v.lang})`;
+    select.appendChild(opt);
   });
+  knownSets.forEach((setName) => {
+    const opt = document.createElement('option');
+    opt.value = recordedVoiceValue(setName);
+    opt.textContent = `🎙 ${setName}`;
+    select.appendChild(opt);
+  });
+  select.value = selected;
+}
+
+function populateAllVoiceSelects() {
+  CATEGORIES.forEach(populateVoiceSelect);
 }
 
 if ('speechSynthesis' in window) {
-  populateVoiceSelect();
-  window.speechSynthesis.addEventListener('voiceschanged', populateVoiceSelect);
+  populateAllVoiceSelects();
+  window.speechSynthesis.addEventListener('voiceschanged', populateAllVoiceSelects);
 } else {
-  populateVoiceSelect(); // still offers the recorded-voice option even with no TTS at all
+  populateAllVoiceSelects(); // still offers the recorded-voice option even with no TTS at all
 }
 
-voiceSelects.forEach((select) => {
+CATEGORIES.forEach((category) => {
+  const select = voiceSelectByCategory[category];
+  if (!select) return;
   select.addEventListener('change', () => {
-    selectedVoiceURI = select.value;
-    voiceSelects.forEach((s) => {
-      if (s !== select) s.value = selectedVoiceURI;
-    });
-    announceCue('これはテストの音声です');
+    selectedVoiceURIByCategory[category] = select.value;
+    announceCue(category, 'これはテストの音声です');
   });
 });
 
-function speakCue(text) {
+function speakCue(category, text) {
   if (!voiceEnabled || !('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel(); // don't let a fast "次へ" tap queue up overlapping lines
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'ja-JP';
-  const voice = window.speechSynthesis.getVoices().find((v) => v.voiceURI === selectedVoiceURI);
+  const voiceURI = selectedVoiceURIByCategory[category];
+  const voice = window.speechSynthesis.getVoices().find((v) => v.voiceURI === voiceURI);
   if (voice) utterance.voice = voice;
   utterance.rate = 0.95;
   utterance.pitch = 1.0;
@@ -1237,18 +1252,28 @@ voiceToggles.forEach((toggle) => {
 });
 renderVoiceToggle();
 
-/* ---------- Stretch cue recordings (自分の声で録音) ---------- */
+/* ---------- Cue recordings (自分の声で録音) ---------- */
 // Lets the manager record their own voice for each cue instead of relying on
 // speechSynthesis. Recordings are saved as audio Blobs in IndexedDB, the only
 // persistent storage in this app — everything else here is deliberately
 // stateless, but there's no other way to keep a recording across reloads.
+//
+// ストレッチと補強は完全に独立したタイマーで、同じ「反対」という言葉でも
+// 別の収録として扱いたいという要望から、あらゆる録音データは
+// (category, setName, text) の3つ組で管理される。category は 'stretch' か
+// 'reinforce'。recordingsMap/sharedRecordingsMapは Map<"category setName", Map<text, ...>>
+// という2階層構造で、外側キーをmapKey()で組み立てて既存のnested*ヘルパーを
+// そのまま使い回す。
 const RECORDINGS_DB_NAME = 'stretchRecordings';
 const RECORDINGS_STORE_NAME = 'recordings';
 const recordingSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
-const recordingsMap = new Map(); // setName -> Map<text, Blob> (this device's own recordings, in IndexedDB)
+const recordingsMap = new Map(); // mapKey(category, setName) -> Map<text, Blob> (this device's own recordings, in IndexedDB)
 let currentPlaybackAudio = null;
-let activeRecording = null; // { setName, id, recorder, stream, chunks } while recording is in progress
+let activeRecording = null; // { category, setName, id, recorder, stream, chunks } while recording is in progress
 
+function mapKey(category, setName) {
+  return `${category} ${setName}`;
+}
 function nestedGet(map, outerKey, innerKey) {
   const inner = map.get(outerKey);
   return inner ? inner.get(innerKey) : undefined;
@@ -1274,7 +1299,7 @@ function nestedDelete(map, outerKey, innerKey) {
 // server-side FTP credentials it ultimately relies on).
 const SHARED_AUDIO_API_URL = 'https://itonomaki-55ve.vercel.app/api/stretch-audio';
 const SHARED_AUDIO_TOKEN_KEY = 'stretchAudioToken';
-const sharedRecordingsMap = new Map(); // setName -> Map<text, url>
+const sharedRecordingsMap = new Map(); // mapKey(category, setName) -> Map<text, url>
 
 function getStoredAudioToken() {
   try {
@@ -1305,9 +1330,10 @@ async function loadSharedRecordings() {
     sharedRecordingsMap.clear();
     (data.items || []).forEach((item) => {
       if (!item || !item.text || !item.url) return;
+      const category = item.category === 'reinforce' ? 'reinforce' : 'stretch';
       const setName = item.setName || DEFAULT_SET_NAME;
-      knownSets.add(setName);
-      nestedSet(sharedRecordingsMap, setName, item.text, item.url);
+      knownSetsByCategory[category].add(setName);
+      nestedSet(sharedRecordingsMap, mapKey(category, setName), item.text, item.url);
     });
   } catch {
     // Offline, or the shared server is unreachable — local recordings and
@@ -1315,7 +1341,7 @@ async function loadSharedRecordings() {
   }
 }
 
-async function uploadRecordingToServer(setName, text, blob, allowRetry = true) {
+async function uploadRecordingToServer(category, setName, text, blob, allowRetry = true) {
   let token = getStoredAudioToken();
   if (!token) token = promptForAudioToken();
   if (!token) return false; // declined to enter one — recording stays local-only
@@ -1324,6 +1350,7 @@ async function uploadRecordingToServer(setName, text, blob, allowRetry = true) {
   form.append('file', blob, 'cue');
   form.append('text', text);
   form.append('setName', setName);
+  form.append('category', category);
   try {
     const res = await fetch(SHARED_AUDIO_API_URL, {
       method: 'POST',
@@ -1338,26 +1365,26 @@ async function uploadRecordingToServer(setName, text, blob, allowRetry = true) {
       }
       if (!allowRetry) return false;
       alert('合言葉が正しくありませんでした。もう一度入力してください。');
-      return uploadRecordingToServer(setName, text, blob, false);
+      return uploadRecordingToServer(category, setName, text, blob, false);
     }
     if (!res.ok) return false;
     const data = await res.json();
-    if (data && data.url) nestedSet(sharedRecordingsMap, setName, text, data.url);
+    if (data && data.url) nestedSet(sharedRecordingsMap, mapKey(category, setName), text, data.url);
     return true;
   } catch {
     return false; // offline, etc. — local recording is still saved
   }
 }
 
-async function deleteRecordingFromServer(setName, text) {
+async function deleteRecordingFromServer(category, setName, text) {
   let token = getStoredAudioToken();
   if (!token) token = promptForAudioToken();
   if (!token) return false;
   try {
-    const res = await fetch(`${SHARED_AUDIO_API_URL}?setName=${encodeURIComponent(setName)}&text=${encodeURIComponent(text)}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch(
+      `${SHARED_AUDIO_API_URL}?category=${encodeURIComponent(category)}&setName=${encodeURIComponent(setName)}&text=${encodeURIComponent(text)}`,
+      { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+    );
     if (res.status === 401) {
       try {
         localStorage.removeItem(SHARED_AUDIO_TOKEN_KEY);
@@ -1368,19 +1395,19 @@ async function deleteRecordingFromServer(setName, text) {
       return false;
     }
     if (!res.ok) return false;
-    nestedDelete(sharedRecordingsMap, setName, text);
+    nestedDelete(sharedRecordingsMap, mapKey(category, setName), text);
     return true;
   } catch {
     return false;
   }
 }
 
-async function deleteSetFromServer(setName) {
+async function deleteSetFromServer(category, setName) {
   let token = getStoredAudioToken();
   if (!token) token = promptForAudioToken();
   if (!token) return false;
   try {
-    const res = await fetch(`${SHARED_AUDIO_API_URL}?setName=${encodeURIComponent(setName)}`, {
+    const res = await fetch(`${SHARED_AUDIO_API_URL}?category=${encodeURIComponent(category)}&setName=${encodeURIComponent(setName)}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -1410,19 +1437,25 @@ function openRecordingsDB() {
   });
 }
 
-// The IndexedDB key for a (set, text) pair. Recordings made before sets
-// existed are stored under a plain-text key (no set prefix); keeping that
-// exact scheme for DEFAULT_SET_NAME means those old recordings still load
-// with no migration. A NUL separator (never appears in real speech text or
-// set names typed by a person) keeps other sets' composite keys unambiguous.
-const DB_KEY_SEP = '\u0000';
-function dbKeyFor(setName, text) {
-  return setName === DEFAULT_SET_NAME ? text : `${setName}${DB_KEY_SEP}${text}`;
+// The IndexedDB key for a (category, set, text) triple. Recordings made
+// before 補強/sets existed are stored under a plain-text key (no prefix) and
+// were always ストレッチ content (補強 didn't exist yet); keeping that exact
+// scheme for (category: "stretch", set: DEFAULT_SET_NAME) means those old
+// recordings still load with no migration. The "|||" separator is a string
+// nobody would plausibly type into a cue or a set name, so every other
+// composite key stays unambiguous.
+const DB_KEY_SEP = '|||';
+function dbKeyFor(category, setName, text) {
+  if (category === 'stretch' && setName === DEFAULT_SET_NAME) return text;
+  return `${category}${DB_KEY_SEP}${setName}${DB_KEY_SEP}${text}`;
 }
 function parseDbKey(key) {
-  const sep = key.indexOf(DB_KEY_SEP);
-  if (sep === -1) return { setName: DEFAULT_SET_NAME, text: key };
-  return { setName: key.slice(0, sep), text: key.slice(sep + 1) };
+  const firstSep = key.indexOf(DB_KEY_SEP);
+  if (firstSep === -1) return { category: 'stretch', setName: DEFAULT_SET_NAME, text: key };
+  const category = key.slice(0, firstSep);
+  const rest = key.slice(firstSep + 1);
+  const secondSep = rest.indexOf(DB_KEY_SEP);
+  return { category, setName: rest.slice(0, secondSep), text: rest.slice(secondSep + 1) };
 }
 
 async function loadAllRecordings() {
@@ -1436,9 +1469,10 @@ async function loadAllRecordings() {
       if (getAll) {
         getAll.onsuccess = () => {
           keys.forEach((key, i) => {
-            const { setName, text } = parseDbKey(key);
-            knownSets.add(setName);
-            nestedSet(recordingsMap, setName, text, getAll.result[i]);
+            const { category, setName, text } = parseDbKey(key);
+            if (!knownSetsByCategory[category]) return; // ignore anything from an unrecognized future category
+            knownSetsByCategory[category].add(setName);
+            nestedSet(recordingsMap, mapKey(category, setName), text, getAll.result[i]);
           });
           resolve();
         };
@@ -1451,27 +1485,27 @@ async function loadAllRecordings() {
   });
 }
 
-async function saveRecordingToDB(setName, text, blob) {
+async function saveRecordingToDB(category, setName, text, blob) {
   const db = await openRecordingsDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(RECORDINGS_STORE_NAME, 'readwrite');
-    tx.objectStore(RECORDINGS_STORE_NAME).put(blob, dbKeyFor(setName, text));
+    tx.objectStore(RECORDINGS_STORE_NAME).put(blob, dbKeyFor(category, setName, text));
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
 
-async function deleteRecordingFromDB(setName, text) {
+async function deleteRecordingFromDB(category, setName, text) {
   const db = await openRecordingsDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(RECORDINGS_STORE_NAME, 'readwrite');
-    tx.objectStore(RECORDINGS_STORE_NAME).delete(dbKeyFor(setName, text));
+    tx.objectStore(RECORDINGS_STORE_NAME).delete(dbKeyFor(category, setName, text));
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
 
-async function deleteSetFromDB(setName) {
+async function deleteSetFromDB(category, setName) {
   const db = await openRecordingsDB();
   return new Promise((resolve, reject) => {
     const store = db.transaction(RECORDINGS_STORE_NAME, 'readwrite').objectStore(RECORDINGS_STORE_NAME);
@@ -1482,7 +1516,8 @@ async function deleteSetFromDB(setName) {
         resolve();
         return;
       }
-      if (parseDbKey(cursor.key).setName === setName) cursor.delete();
+      const parsed = parseDbKey(cursor.key);
+      if (parsed.category === category && parsed.setName === setName) cursor.delete();
       cursor.continue();
     };
     request.onerror = () => reject(request.error);
@@ -1497,21 +1532,24 @@ function pickRecordingMimeType() {
   return ''; // let the browser pick its default
 }
 
-// Groups steps by their exact spoken text — "反対" alone is read at ~8
-// different steps, "終わり" for every step's auto-stop, etc. — so one
-// recording covers every step that says the same thing, instead of making
-// the manager record the same word over and over. Pools cues from every
-// menu across both the ストレッチ and 補強 tabs, since they share the same
-// recording/playback engine — a "反対" recorded from either tab (into the
-// same set) covers both. Independent of which set is being viewed/recorded.
-function buildRecordingItems() {
+// Groups a category's steps by their exact spoken text — "反対" alone is
+// read at several different steps within a menu, "終わり" for every step's
+// auto-stop, etc. — so one recording covers every step within that category
+// that says the same thing, instead of making the manager record the same
+// word over and over. ストレッチ and 補強 are listed completely separately
+// (see the module comment above) so this only pools cues within the given
+// category, never across the two.
+function buildRecordingItems(category) {
   const byText = new Map(); // text -> groupNames[]
   function addStep(step) {
     if (!byText.has(step.voice)) byText.set(step.voice, []);
     byText.get(step.voice).push(step.group);
   }
-  STRETCH_STEPS.forEach(addStep);
-  Object.values(REINFORCE_MENUS).forEach((steps) => steps.forEach(addStep));
+  if (category === 'stretch') {
+    STRETCH_STEPS.forEach(addStep);
+  } else {
+    Object.values(REINFORCE_MENUS).forEach((steps) => steps.forEach(addStep));
+  }
   if (!byText.has('終わり')) byText.set('終わり', []);
   byText.get('終わり').push('(共通)終わりの合図');
   return Array.from(byText.entries()).map(([text, groupNames]) => ({ id: text, text, groupNames }));
@@ -1524,10 +1562,13 @@ function stopAnyPlayback() {
   }
 }
 
-// Reflects knownSets into the modal's own set picker (independent of the
-// "声を選ぶ" playback pickers — this one just controls which set the modal
-// is currently viewing/recording into, via activeRecordingSetId).
+// Reflects the currently-open category's known sets into the modal's own
+// set picker (independent of the "声を選ぶ" playback pickers — this one just
+// controls which set the modal is currently viewing/recording into, via
+// activeRecordingSetIdByCategory).
 function populateRecordingSetSelect() {
+  const category = activeRecordingCategory;
+  const knownSets = knownSetsByCategory[category];
   el.recordingSetSelect.innerHTML = '';
   knownSets.forEach((setName) => {
     const opt = document.createElement('option');
@@ -1535,14 +1576,14 @@ function populateRecordingSetSelect() {
     opt.textContent = setName;
     el.recordingSetSelect.appendChild(opt);
   });
-  if (!knownSets.has(activeRecordingSetId)) activeRecordingSetId = DEFAULT_SET_NAME;
-  el.recordingSetSelect.value = activeRecordingSetId;
-  el.recordingSetDeleteBtn.disabled = activeRecordingSetId === DEFAULT_SET_NAME;
+  if (!knownSets.has(activeRecordingSetIdByCategory[category])) activeRecordingSetIdByCategory[category] = DEFAULT_SET_NAME;
+  el.recordingSetSelect.value = activeRecordingSetIdByCategory[category];
+  el.recordingSetDeleteBtn.disabled = activeRecordingSetIdByCategory[category] === DEFAULT_SET_NAME;
 }
 
 el.recordingSetSelect.addEventListener('change', () => {
-  activeRecordingSetId = el.recordingSetSelect.value;
-  el.recordingSetDeleteBtn.disabled = activeRecordingSetId === DEFAULT_SET_NAME;
+  activeRecordingSetIdByCategory[activeRecordingCategory] = el.recordingSetSelect.value;
+  el.recordingSetDeleteBtn.disabled = activeRecordingSetIdByCategory[activeRecordingCategory] === DEFAULT_SET_NAME;
   buildAllRecordingRows();
 });
 
@@ -1550,29 +1591,32 @@ el.recordingSetNewBtn.addEventListener('click', () => {
   const input = prompt('新しいセットの名前を入力してください(例:田中コーチ)');
   const name = input ? input.trim() : '';
   if (!name) return;
-  knownSets.add(name);
-  activeRecordingSetId = name;
+  const category = activeRecordingCategory;
+  knownSetsByCategory[category].add(name);
+  activeRecordingSetIdByCategory[category] = name;
   populateRecordingSetSelect();
-  populateVoiceSelect(); // the new set should also appear as a playback choice right away
+  populateVoiceSelect(category); // the new set should also appear as a playback choice right away
   buildAllRecordingRows();
 });
 
 el.recordingSetDeleteBtn.addEventListener('click', async () => {
-  if (activeRecordingSetId === DEFAULT_SET_NAME) return; // guarded by disabled state too
-  const setName = activeRecordingSetId;
+  const category = activeRecordingCategory;
+  const setName = activeRecordingSetIdByCategory[category];
+  if (setName === DEFAULT_SET_NAME) return; // guarded by disabled state too
   if (!confirm(`セット「${setName}」の録音を全て削除します。よろしいですか?`)) return;
 
-  recordingsMap.delete(setName);
-  await deleteSetFromDB(setName);
-  const hadShared = sharedRecordingsMap.has(setName);
-  sharedRecordingsMap.delete(setName);
-  knownSets.delete(setName);
-  if (hadShared) await deleteSetFromServer(setName);
-  if (selectedVoiceURI === recordedVoiceValue(setName)) selectedVoiceURI = null; // populateVoiceSelect() re-picks a fallback
+  const key = mapKey(category, setName);
+  recordingsMap.delete(key);
+  await deleteSetFromDB(category, setName);
+  const hadShared = sharedRecordingsMap.has(key);
+  sharedRecordingsMap.delete(key);
+  knownSetsByCategory[category].delete(setName);
+  if (hadShared) await deleteSetFromServer(category, setName);
+  if (selectedVoiceURIByCategory[category] === recordedVoiceValue(setName)) selectedVoiceURIByCategory[category] = null; // populateVoiceSelect() re-picks a fallback
 
-  activeRecordingSetId = DEFAULT_SET_NAME;
+  activeRecordingSetIdByCategory[category] = DEFAULT_SET_NAME;
   populateRecordingSetSelect();
-  populateVoiceSelect();
+  populateVoiceSelect(category);
   buildAllRecordingRows();
 });
 
@@ -1593,11 +1637,16 @@ function createRecordingRow(item) {
     recordBtn.title = 'この端末は録音に対応していません(再生・削除は可能です)';
   }
 
-  // Reads activeRecordingSetId live (not captured at row-build time) so
-  // these handlers always act on whichever set is currently selected.
+  // Reads activeRecordingCategory/activeRecordingSetIdByCategory live (not
+  // captured at row-build time) so these handlers always act on whichever
+  // category+set is currently selected.
+  function currentKey() {
+    return mapKey(activeRecordingCategory, activeRecordingSetIdByCategory[activeRecordingCategory]);
+  }
   function refreshRowStatus() {
-    const hasLocal = nestedHas(recordingsMap, activeRecordingSetId, item.id);
-    const hasShared = nestedHas(sharedRecordingsMap, activeRecordingSetId, item.id);
+    const key = currentKey();
+    const hasLocal = nestedHas(recordingsMap, key, item.id);
+    const hasShared = nestedHas(sharedRecordingsMap, key, item.id);
     node.classList.toggle('is-recorded', hasLocal || hasShared);
     statusEl.textContent = hasShared ? 'チーム共有済み' : hasLocal ? '端末のみ(未共有)' : '未録音';
     playBtn.disabled = !(hasLocal || hasShared);
@@ -1605,18 +1654,21 @@ function createRecordingRow(item) {
   }
   refreshRowStatus();
 
-  recordBtn.addEventListener('click', () => toggleRecording(activeRecordingSetId, item.id, recordBtn, refreshRowStatus));
+  recordBtn.addEventListener('click', () =>
+    toggleRecording(activeRecordingCategory, activeRecordingSetIdByCategory[activeRecordingCategory], item.id, recordBtn, refreshRowStatus)
+  );
 
   playBtn.addEventListener('click', () => {
     stopAnyPlayback();
-    const blob = nestedGet(recordingsMap, activeRecordingSetId, item.id);
+    const key = currentKey();
+    const blob = nestedGet(recordingsMap, key, item.id);
     if (blob) {
       const audio = new Audio(URL.createObjectURL(blob));
       currentPlaybackAudio = audio;
       audio.play();
       return;
     }
-    const url = nestedGet(sharedRecordingsMap, activeRecordingSetId, item.id);
+    const url = nestedGet(sharedRecordingsMap, key, item.id);
     if (url) {
       const audio = new Audio(url);
       currentPlaybackAudio = audio;
@@ -1625,11 +1677,13 @@ function createRecordingRow(item) {
   });
 
   deleteBtn.addEventListener('click', async () => {
-    const setName = activeRecordingSetId;
-    const hadShared = nestedHas(sharedRecordingsMap, setName, item.id);
-    nestedDelete(recordingsMap, setName, item.id);
-    await deleteRecordingFromDB(setName, item.id);
-    if (hadShared) await deleteRecordingFromServer(setName, item.id);
+    const category = activeRecordingCategory;
+    const setName = activeRecordingSetIdByCategory[category];
+    const key = mapKey(category, setName);
+    const hadShared = nestedHas(sharedRecordingsMap, key, item.id);
+    nestedDelete(recordingsMap, key, item.id);
+    await deleteRecordingFromDB(category, setName, item.id);
+    if (hadShared) await deleteRecordingFromServer(category, setName, item.id);
     refreshRowStatus();
   });
 
@@ -1638,13 +1692,13 @@ function createRecordingRow(item) {
 
 function buildAllRecordingRows() {
   el.stretchRecordingsList.innerHTML = '';
-  buildRecordingItems().forEach((item) => {
+  buildRecordingItems(activeRecordingCategory).forEach((item) => {
     el.stretchRecordingsList.appendChild(createRecordingRow(item));
   });
 }
 
-async function toggleRecording(setName, id, btn, refreshRowStatus) {
-  if (activeRecording && activeRecording.setName === setName && activeRecording.id === id) {
+async function toggleRecording(category, setName, id, btn, refreshRowStatus) {
+  if (activeRecording && activeRecording.category === category && activeRecording.setName === setName && activeRecording.id === id) {
     activeRecording.recorder.stop(); // onstop handles saving + cleanup
     return;
   }
@@ -1671,13 +1725,13 @@ async function toggleRecording(setName, id, btn, refreshRowStatus) {
     btn.textContent = '🔴 録音';
     const blob = new Blob(chunks, { type: recorder.mimeType || mimeType || 'audio/webm' });
     if (blob.size > 0) {
-      nestedSet(recordingsMap, setName, id, blob);
+      nestedSet(recordingsMap, mapKey(category, setName), id, blob);
       refreshRowStatus();
-      await saveRecordingToDB(setName, id, blob);
+      await saveRecordingToDB(category, setName, id, blob);
 
       btn.disabled = true;
       btn.textContent = '☁️ 共有中…';
-      const uploaded = await uploadRecordingToServer(setName, id, blob);
+      const uploaded = await uploadRecordingToServer(category, setName, id, blob);
       btn.disabled = false;
       btn.textContent = '🔴 録音';
       refreshRowStatus();
@@ -1687,33 +1741,36 @@ async function toggleRecording(setName, id, btn, refreshRowStatus) {
     }
   });
 
-  activeRecording = { setName, id, recorder, stream, chunks };
+  activeRecording = { category, setName, id, recorder, stream, chunks };
   btn.classList.add('is-recording');
   btn.textContent = '⏹ 停止';
   recorder.start();
 }
 
-// Only used when the selected voice is a "🎙 <セット名>" entry: prefers this
-// device's own recording (in that set) for the exact cue text, then the
-// team's shared recording (in that set), falling back to speechSynthesis if
-// neither exists. Any TTS voice always speaks via speechSynthesis, ignoring
-// recordings entirely. Recordings are keyed by the spoken text itself, so
-// every step that says e.g. "反対" shares one recording within a set
-// automatically — including across the ストレッチ and 補強 tabs, which both
-// call this same function.
-function announceCue(text) {
+// Only used when the given category's selected voice is a "🎙 <セット名>"
+// entry: prefers this device's own recording (in that category+set) for the
+// exact cue text, then the team's shared recording (same category+set),
+// falling back to speechSynthesis if neither exists. Any TTS voice always
+// speaks via speechSynthesis, ignoring recordings entirely. Recordings are
+// keyed by the spoken text itself, so every step within a category that
+// says e.g. "反対" shares one recording within a set automatically — but
+// ストレッチ and 補強 never share recordings with each other, even for the
+// exact same word (see the module comment above).
+function announceCue(category, text) {
   if (!voiceEnabled) return;
   stopAnyPlayback();
+  const selectedVoiceURI = selectedVoiceURIByCategory[category];
   if (isRecordedVoiceValue(selectedVoiceURI)) {
     const setName = setNameFromVoiceValue(selectedVoiceURI);
-    const blob = nestedGet(recordingsMap, setName, text);
+    const key = mapKey(category, setName);
+    const blob = nestedGet(recordingsMap, key, text);
     if (blob) {
       const audio = new Audio(URL.createObjectURL(blob));
       currentPlaybackAudio = audio;
       audio.play();
       return;
     }
-    const url = nestedGet(sharedRecordingsMap, setName, text);
+    const url = nestedGet(sharedRecordingsMap, key, text);
     if (url) {
       const audio = new Audio(url);
       currentPlaybackAudio = audio;
@@ -1721,7 +1778,7 @@ function announceCue(text) {
       return;
     }
   }
-  speakCue(text);
+  speakCue(category, text);
 }
 
 populateRecordingSetSelect();
@@ -1729,24 +1786,30 @@ buildAllRecordingRows();
 loadAllRecordings()
   .then(() => {
     populateRecordingSetSelect();
-    populateVoiceSelect();
+    populateAllVoiceSelects();
     buildAllRecordingRows();
   })
   .catch(() => {});
 loadSharedRecordings()
   .then(() => {
     populateRecordingSetSelect();
-    populateVoiceSelect();
+    populateAllVoiceSelects();
     buildAllRecordingRows();
   })
   .catch(() => {});
 
-function openRecordingsModal() {
+const RECORDINGS_MODAL_TITLE = { stretch: 'ストレッチのセリフを自分の声で録音する', reinforce: '補強のセリフを自分の声で録音する' };
+
+function openRecordingsModal(category) {
+  activeRecordingCategory = category;
+  el.stretchRecordingsModalTitle.textContent = RECORDINGS_MODAL_TITLE[category];
   el.stretchRecordingsModal.hidden = false;
+  populateRecordingSetSelect();
+  buildAllRecordingRows();
   loadSharedRecordings()
     .then(() => {
       populateRecordingSetSelect();
-      populateVoiceSelect();
+      populateVoiceSelect(category);
       buildAllRecordingRows();
     })
     .catch(() => {});
@@ -1755,9 +1818,8 @@ function closeRecordingsModal() {
   el.stretchRecordingsModal.hidden = true;
   stopAnyPlayback();
 }
-[el.stretchRecordingsToggle, el.reinforceRecordingsToggle].filter(Boolean).forEach((btn) => {
-  btn.addEventListener('click', openRecordingsModal);
-});
+if (el.stretchRecordingsToggle) el.stretchRecordingsToggle.addEventListener('click', () => openRecordingsModal('stretch'));
+if (el.reinforceRecordingsToggle) el.reinforceRecordingsToggle.addEventListener('click', () => openRecordingsModal('reinforce'));
 el.stretchRecordingsCloseBtn.addEventListener('click', closeRecordingsModal);
 el.stretchRecordingsModal.addEventListener('click', (e) => {
   if (e.target === el.stretchRecordingsModal) closeRecordingsModal(); // backdrop tap
@@ -1815,7 +1877,7 @@ function startNextStretchStep() {
   stretchElapsedMs = 0;
   stretchStartEpoch = Date.now();
   renderStretchUI();
-  announceCue(STRETCH_STEPS[stretchIndex].voice);
+  announceCue('stretch', STRETCH_STEPS[stretchIndex].voice);
 }
 
 // For interruptions mid-stretch (a car passing on the road, etc.) — freezes
@@ -1846,7 +1908,7 @@ function tickStretch() {
       stretchElapsedMs = STRETCH_STEP_MS;
       stretchRunning = false;
       renderStretchUI();
-      announceCue('終わり');
+      announceCue('stretch', '終わり');
     } else {
       updateStretchTimerDisplay();
     }
@@ -1960,7 +2022,7 @@ function startNextReinforceStep() {
   reinforceElapsedMs = 0;
   reinforceStartEpoch = Date.now();
   renderReinforceUI();
-  announceCue(steps[reinforceIndex].voice);
+  announceCue('reinforce', steps[reinforceIndex].voice);
 }
 
 function toggleReinforcePause() {
@@ -1992,7 +2054,7 @@ function tickReinforce() {
       reinforceElapsedMs = durationMs;
       reinforceRunning = false;
       renderReinforceUI();
-      announceCue('終わり');
+      announceCue('reinforce', '終わり');
     } else {
       updateReinforceTimerDisplay();
     }
