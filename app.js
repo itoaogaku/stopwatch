@@ -13,6 +13,7 @@ const el = {
     pace: document.getElementById('paceTab'),
     crossing: document.getElementById('crossingTab'),
     stretch: document.getElementById('stretchTab'),
+    reinforce: document.getElementById('reinforceTab'),
     tabata: document.getElementById('tabataTab'),
   },
   paceRows: document.getElementById('paceRows'),
@@ -37,6 +38,19 @@ const el = {
   stretchStartBtn: document.getElementById('stretchStartBtn'),
   stretchPauseBtn: document.getElementById('stretchPauseBtn'),
   stretchResetBtn: document.getElementById('stretchResetBtn'),
+  reinforceProgress: document.getElementById('reinforceProgress'),
+  reinforceVoiceToggle: document.getElementById('reinforceVoiceToggle'),
+  reinforceVoiceSelect: document.getElementById('reinforceVoiceSelect'),
+  reinforceRecordingsToggle: document.getElementById('reinforceRecordingsToggle'),
+  reinforceMenuPicker: document.getElementById('reinforceMenuPicker'),
+  reinforceTimer: document.getElementById('reinforceTimer'),
+  reinforceCurrentGroup: document.getElementById('reinforceCurrentGroup'),
+  reinforceCurrentSpec: document.getElementById('reinforceCurrentSpec'),
+  reinforceNextGroup: document.getElementById('reinforceNextGroup'),
+  reinforceNextSpeech: document.getElementById('reinforceNextSpeech'),
+  reinforceStartBtn: document.getElementById('reinforceStartBtn'),
+  reinforcePauseBtn: document.getElementById('reinforcePauseBtn'),
+  reinforceResetBtn: document.getElementById('reinforceResetBtn'),
   tabataProgress: document.getElementById('tabataProgress'),
   tabataDisplayPanel: document.getElementById('tabataDisplayPanel'),
   tabataPhase: document.getElementById('tabataPhase'),
@@ -1006,14 +1020,96 @@ const STRETCH_STEPS = [
 
 const STRETCH_STEP_MS = 30000;
 
+/* ---------- Reinforcement training menus (補強) ---------- */
+// Same "group / speech / voice" shape as STRETCH_STEPS (see comment above),
+// plus "spec" (the reps/count description shown for reference, e.g. "10回4
+// カウント") and "durationSec": a number for steps with an explicit fixed
+// duration (auto-counts and auto-stops, like the stretch timer), or null for
+// rep/count-based steps with no real clock duration (the manager decides
+// when to advance — see startNextReinforceStep). Menus other than フル are
+// added as their content is provided; an empty array just shows as "準備中".
+const REINFORCE_MENUS = {
+  フル: [
+    { group: '【1】膝立て', spec: '10回4カウント', speech: '膝立ていきます、よーいはじめ', voice: '膝立ていきます、よーいはじめ', durationSec: null },
+    { group: '【2】膝伸ばし', spec: '10回4カウント', speech: '膝伸ばしいきます、よーいはじめ', voice: '膝伸ばしいきます、よーいはじめ', durationSec: null },
+    { group: '【3】バンザイ', spec: '10回4カウント', speech: 'バンザイいきます、よーいはじめ', voice: 'バンザイいきます、よーいはじめ', durationSec: null },
+    { group: '【4】四つん這い', spec: '10回4カウント', speech: '四つん這いいきます、よーいはじめ', voice: '四つん這いいきます、よーいはじめ', durationSec: null },
+    { group: '【5】プランク', spec: '10回4カウント', speech: 'プランクいきます、よーいはじめ', voice: 'プランクいきます、よーいはじめ', durationSec: null },
+    { group: '【6】プランク(各自)', spec: '8回4カウント', speech: 'プランク各自いきます、よーいはじめ', voice: 'プランク各自いきます、よーいはじめ', durationSec: null },
+
+    { group: '【7】ダイアゴナル(縦横)', spec: '40秒', speech: 'ダイアゴナル縦横40秒ずついきます、よーいはじめ', voice: 'ダイアゴナル縦横40秒ずついきます、よーいはじめ', durationSec: 40 },
+    { group: '【7】ダイアゴナル(反対)', spec: '40秒', speech: '反対いきます、よーいはじめ', voice: '反対いきます、よーいはじめ', durationSec: 40 },
+    { group: '【7】ダイアゴナル(サイド)', spec: '40秒', speech: 'サイドいきます、よーいはじめ', voice: 'サイドいきます、よーいはじめ', durationSec: 40 },
+    { group: '【7】ダイアゴナル(反対)', spec: '40秒', speech: '反対いきます、よーいはじめ', voice: '反対いきます、よーいはじめ', durationSec: 40 },
+
+    { group: '【8】L字傾け', spec: '8回4カウント×4(一拍空ける)', speech: 'L字傾けいきます、よーいはじめ', voice: 'L字傾けいきます、よーいはじめ', durationSec: null },
+    { group: '【9】L字腕振り', spec: '60秒', speech: 'L字腕振りいきます、よーいはじめ', voice: 'L字腕振りいきます、よーいはじめ', durationSec: 60 },
+
+    { group: '【10】上体起こし', spec: '4回4カウント×5', speech: '上体起こしいきます、よーいはじめ', voice: '上体起こしいきます、よーいはじめ', durationSec: null },
+    { group: '【10】上体起こし(反対)', spec: '4回4カウント×5', speech: '反対', voice: '反対', durationSec: null },
+
+    { group: '【11】ストレッチ', spec: '30秒', speech: 'ストレッチいきます、よーいはじめ', voice: 'ストレッチいきます、よーいはじめ', durationSec: 30 },
+    { group: '【11】ストレッチ(脊柱起立筋)', spec: '30秒', speech: '次、脊柱起立筋(30秒)いきます、よーいはじめ', voice: '次、せきちゅうきりつきん、いきます、よーいはじめ', durationSec: 30 },
+
+    { group: '※2人組になる', spec: '', speech: '2人組になってください', voice: '2人組になってください', durationSec: null },
+
+    { group: '【12.14】2人組腹斜筋', spec: '各10回4カウント×2', speech: '2人組腹斜筋いきます、外腹斜筋を意識してください、よーいはじめ', voice: '2人組腹斜筋いきます、外腹斜筋を意識してください、よーいはじめ', durationSec: null },
+    { group: '【12.14】2人組腹斜筋(反対)', spec: '各10回4カウント×2', speech: '反対', voice: '反対', durationSec: null },
+
+    { group: '【13.15】スリップボード', spec: '45秒', speech: 'スリップボードいきます、バックラインを意識してください、よーいはじめ', voice: 'スリップボードいきます、バックラインを意識してください、よーいはじめ', durationSec: 45 },
+
+    { group: '※2人組交代', spec: '腹斜筋に戻る', speech: '交代してください', voice: '交代してください', durationSec: null },
+
+    { group: '【16】ショートV', spec: '(1人で行う)10回4カウント×2', speech: 'ショートVいきます、外腹斜筋と内転筋を意識してください、よーいはじめ', voice: 'ショートVいきます、外腹斜筋と内転筋を意識してください、よーいはじめ', durationSec: null },
+    { group: '【16】ショートV(反対)', spec: '(1人で行う)10回4カウント×2', speech: '反対', voice: '反対', durationSec: null },
+
+    { group: '【17】レッグダウン', spec: '(2人組)各8回4カウント+あげて', speech: 'レッグダウンいきます、外腹斜筋と内転筋を意識してください、よーいはじめ', voice: 'レッグダウンいきます、外腹斜筋と内転筋を意識してください、よーいはじめ', durationSec: null },
+    { group: '【17】レッグダウン(反対)', spec: '(2人組)各8回4カウント+あげて', speech: '反対', voice: '反対', durationSec: null },
+    { group: '【17】レッグダウン(交代)', spec: '', speech: '交代', voice: '交代', durationSec: null },
+
+    { group: '【18】ストレッチ', spec: '30秒×2(1人で行う)', speech: 'ストレッチいきます、よーいはじめ', voice: 'ストレッチいきます、よーいはじめ', durationSec: 30 },
+    { group: '【18】ストレッチ(反対)', spec: '30秒×2(1人で行う)', speech: '反対', voice: '反対', durationSec: 30 },
+
+    { group: '【19】前鋸筋', spec: '(1人で行う)各20回4カウント×2', speech: '前鋸筋いきます、よーいはじめ', voice: '前鋸筋いきます、よーいはじめ', durationSec: null },
+    { group: '【19】前鋸筋(反対)', spec: '(1人で行う)各20回4カウント×2', speech: '反対', voice: '反対', durationSec: null },
+
+    { group: '【20】下後鋸筋', spec: '(2人組)各自30回・全員終わるまで待つ', speech: '下後鋸筋いきます', voice: '下後鋸筋いきます', durationSec: null },
+
+    { group: '【21】ストレッチ', spec: '30秒×2(以降1人で行う)', speech: 'ストレッチいきます、よーいはじめ', voice: 'ストレッチいきます、よーいはじめ', durationSec: 30 },
+    { group: '【21】ストレッチ(反対)', spec: '30秒×2(以降1人で行う)', speech: '反対', voice: '反対', durationSec: 30 },
+
+    { group: '【22】アップ', spec: 'なるべく上級生の動きに合わせて', speech: 'アップいきます、よーいはじめ', voice: 'アップいきます、よーいはじめ', durationSec: null },
+
+    { group: '【23】サーキット①腕振り(1/2セット)', spec: '10カウント', speech: 'サーキット右手下からいきます、(選手がコア入れたのを確認してから)よーいはじめ', voice: 'サーキット右手下からいきます、よーいはじめ', durationSec: null },
+    { group: '【23】サーキット②(1/2セット)', spec: '10カウント', speech: 'よーいはじめ', voice: 'よーいはじめ', durationSec: null },
+    { group: '【23】サーキット③腕をたたむ(1/2セット)', spec: '10回4カウント×2', speech: 'よーいはじめ', voice: 'よーいはじめ', durationSec: null },
+    { group: '【23】サーキット④サイドバキューム(1/2セット)', spec: '6回4カウント×2', speech: 'よーいはじめ', voice: 'よーいはじめ', durationSec: null },
+    { group: '【23】サーキット⑤サイドプランクアブダクション(1/2セット)', spec: '10カウント', speech: 'よーいはじめ', voice: 'よーいはじめ', durationSec: null },
+    { group: '【23】サーキット⑥ジャックナイフ(1/2セット)', spec: '10回4カウント×2', speech: 'よーいはじめ', voice: 'よーいはじめ', durationSec: null },
+
+    { group: '【23】サーキット①腕振り(2/2セット)', spec: '10カウント', speech: 'サーキット右手下からいきます、(選手がコア入れたのを確認してから)よーいはじめ', voice: 'サーキット右手下からいきます、よーいはじめ', durationSec: null },
+    { group: '【23】サーキット②(2/2セット)', spec: '10カウント', speech: 'よーいはじめ', voice: 'よーいはじめ', durationSec: null },
+    { group: '【23】サーキット③腕をたたむ(2/2セット)', spec: '10回4カウント×2', speech: 'よーいはじめ', voice: 'よーいはじめ', durationSec: null },
+    { group: '【23】サーキット④サイドバキューム(2/2セット)', spec: '6回4カウント×2', speech: 'よーいはじめ', voice: 'よーいはじめ', durationSec: null },
+    { group: '【23】サーキット⑤サイドプランクアブダクション(2/2セット)', spec: '10カウント', speech: 'よーいはじめ', voice: 'よーいはじめ', durationSec: null },
+    { group: '【23】サーキット⑥ジャックナイフ(2/2セット)', spec: '10回4カウント×2', speech: 'よーいはじめ', voice: 'よーいはじめ', durationSec: null },
+  ],
+  コアA: [],
+  コアB: [],
+  ループ: [],
+  下肢: [],
+};
+const REINFORCE_MENU_ORDER = ['フル', 'コアA', 'コアB', 'ループ', '下肢'];
+
 let stretchIndex = -1; // -1 = not started yet
 let stretchRunning = false;
 let stretchElapsedMs = 0; // accumulated time for the current step, while paused/stopped
 let stretchStartEpoch = 0; // epoch when the current running span began
 
 // Reads each step's cue aloud (via speechSynthesis or a recording — see
-// below) so the manager doesn't have to read it themselves.
-let stretchVoiceEnabled = true;
+// below) so the manager doesn't have to read it themselves. Shared between
+// the ストレッチ and 補強 tabs — both drive the same voice/recording engine.
+let voiceEnabled = true;
 
 // The Web Speech API can only use voices the browser itself exposes to
 // speechSynthesis.getVoices() — on iOS Safari that's a small, fixed list
@@ -1028,24 +1124,15 @@ let selectedVoiceURI = null;
 // falling back to the team's shared ones) instead of speechSynthesis.
 const RECORDED_VOICE_VALUE = '__recorded__';
 
-function populateStretchVoiceSelect() {
+// ストレッチ・補強タブそれぞれに同じ操作を置いているので、両方のUI要素を
+// まとめて同期させる。どちらか一方が無いページ構成でも動くようフィルタする。
+const voiceSelects = [el.stretchVoiceSelect, el.reinforceVoiceSelect].filter(Boolean);
+const voiceToggles = [el.stretchVoiceToggle, el.reinforceVoiceToggle].filter(Boolean);
+
+function populateVoiceSelect() {
   const voices = 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : [];
   const jaVoices = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith('ja'));
   const list = jaVoices.length > 0 ? jaVoices : voices;
-
-  el.stretchVoiceSelect.innerHTML = '';
-  el.stretchVoiceSelect.disabled = false;
-  list.forEach((v) => {
-    const opt = document.createElement('option');
-    opt.value = v.voiceURI;
-    opt.textContent = `${v.name} (${v.lang})`;
-    el.stretchVoiceSelect.appendChild(opt);
-  });
-
-  const recordedOpt = document.createElement('option');
-  recordedOpt.value = RECORDED_VOICE_VALUE;
-  recordedOpt.textContent = '🎙 録音音声(自分の声・チーム共有)';
-  el.stretchVoiceSelect.appendChild(recordedOpt);
 
   if (selectedVoiceURI !== RECORDED_VOICE_VALUE) {
     const stillAvailable = selectedVoiceURI && list.some((v) => v.voiceURI === selectedVoiceURI);
@@ -1058,23 +1145,43 @@ function populateStretchVoiceSelect() {
       }
     }
   }
-  el.stretchVoiceSelect.value = selectedVoiceURI;
+
+  voiceSelects.forEach((select) => {
+    select.innerHTML = '';
+    select.disabled = false;
+    list.forEach((v) => {
+      const opt = document.createElement('option');
+      opt.value = v.voiceURI;
+      opt.textContent = `${v.name} (${v.lang})`;
+      select.appendChild(opt);
+    });
+    const recordedOpt = document.createElement('option');
+    recordedOpt.value = RECORDED_VOICE_VALUE;
+    recordedOpt.textContent = '🎙 録音音声(自分の声・チーム共有)';
+    select.appendChild(recordedOpt);
+    select.value = selectedVoiceURI;
+  });
 }
 
 if ('speechSynthesis' in window) {
-  populateStretchVoiceSelect();
-  window.speechSynthesis.addEventListener('voiceschanged', populateStretchVoiceSelect);
+  populateVoiceSelect();
+  window.speechSynthesis.addEventListener('voiceschanged', populateVoiceSelect);
 } else {
-  populateStretchVoiceSelect(); // still offers the recorded-voice option even with no TTS at all
+  populateVoiceSelect(); // still offers the recorded-voice option even with no TTS at all
 }
 
-el.stretchVoiceSelect.addEventListener('change', () => {
-  selectedVoiceURI = el.stretchVoiceSelect.value;
-  announceStretchCue('これはテストの音声です');
+voiceSelects.forEach((select) => {
+  select.addEventListener('change', () => {
+    selectedVoiceURI = select.value;
+    voiceSelects.forEach((s) => {
+      if (s !== select) s.value = selectedVoiceURI;
+    });
+    announceCue('これはテストの音声です');
+  });
 });
 
-function speakStretchCue(text) {
-  if (!stretchVoiceEnabled || !('speechSynthesis' in window)) return;
+function speakCue(text) {
+  if (!voiceEnabled || !('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel(); // don't let a fast "次へ" tap queue up overlapping lines
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'ja-JP';
@@ -1085,20 +1192,24 @@ function speakStretchCue(text) {
   window.speechSynthesis.speak(utterance);
 }
 
-function renderStretchVoiceToggle() {
-  el.stretchVoiceToggle.classList.toggle('is-muted', !stretchVoiceEnabled);
-  el.stretchVoiceToggle.textContent = stretchVoiceEnabled ? '🔊 音声' : '🔇 音声';
+function renderVoiceToggle() {
+  voiceToggles.forEach((toggle) => {
+    toggle.classList.toggle('is-muted', !voiceEnabled);
+    toggle.textContent = voiceEnabled ? '🔊 音声' : '🔇 音声';
+  });
 }
 
-el.stretchVoiceToggle.addEventListener('click', () => {
-  stretchVoiceEnabled = !stretchVoiceEnabled;
-  if (!stretchVoiceEnabled) {
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    stopAnyPlayback();
-  }
-  renderStretchVoiceToggle();
+voiceToggles.forEach((toggle) => {
+  toggle.addEventListener('click', () => {
+    voiceEnabled = !voiceEnabled;
+    if (!voiceEnabled) {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      stopAnyPlayback();
+    }
+    renderVoiceToggle();
+  });
 });
-renderStretchVoiceToggle();
+renderVoiceToggle();
 
 /* ---------- Stretch cue recordings (自分の声で録音) ---------- */
 // Lets the manager record their own voice for each cue instead of relying on
@@ -1281,13 +1392,17 @@ function pickRecordingMimeType() {
 // Groups steps by their exact spoken text — "反対" alone is read at ~8
 // different steps, "終わり" for every step's auto-stop, etc. — so one
 // recording covers every step that says the same thing, instead of making
-// the manager record the same word over and over.
+// the manager record the same word over and over. Pools cues from every
+// menu across both the ストレッチ and 補強 tabs, since they share the same
+// recording/playback engine — a "反対" recorded from either tab covers both.
 function buildRecordingItems() {
   const byText = new Map(); // text -> groupNames[]
-  STRETCH_STEPS.forEach((step) => {
+  function addStep(step) {
     if (!byText.has(step.voice)) byText.set(step.voice, []);
     byText.get(step.voice).push(step.group);
-  });
+  }
+  STRETCH_STEPS.forEach(addStep);
+  Object.values(REINFORCE_MENUS).forEach((steps) => steps.forEach(addStep));
   if (!byText.has('終わり')) byText.set('終わり', []);
   byText.get('終わり').push('(共通)終わりの合図');
   return Array.from(byText.entries()).map(([text, groupNames]) => ({ id: text, text, groupNames }));
@@ -1419,9 +1534,10 @@ async function toggleRecording(id, btn, refreshRowStatus) {
 // falling back to speechSynthesis if neither exists. Any other selected
 // voice always speaks via speechSynthesis, ignoring recordings entirely.
 // Recordings are keyed by the spoken text itself, so every step that says
-// e.g. "反対" shares one recording automatically.
-function announceStretchCue(text) {
-  if (!stretchVoiceEnabled) return;
+// e.g. "反対" shares one recording automatically — including across the
+// ストレッチ and 補強 tabs, which both call this same function.
+function announceCue(text) {
+  if (!voiceEnabled) return;
   stopAnyPlayback();
   if (selectedVoiceURI === RECORDED_VOICE_VALUE) {
     const blob = recordingsMap.get(text);
@@ -1439,7 +1555,7 @@ function announceStretchCue(text) {
       return;
     }
   }
-  speakStretchCue(text);
+  speakCue(text);
 }
 
 buildAllRecordingRows();
@@ -1454,7 +1570,9 @@ function closeRecordingsModal() {
   el.stretchRecordingsModal.hidden = true;
   stopAnyPlayback();
 }
-el.stretchRecordingsToggle.addEventListener('click', openRecordingsModal);
+[el.stretchRecordingsToggle, el.reinforceRecordingsToggle].filter(Boolean).forEach((btn) => {
+  btn.addEventListener('click', openRecordingsModal);
+});
 el.stretchRecordingsCloseBtn.addEventListener('click', closeRecordingsModal);
 el.stretchRecordingsModal.addEventListener('click', (e) => {
   if (e.target === el.stretchRecordingsModal) closeRecordingsModal(); // backdrop tap
@@ -1512,7 +1630,7 @@ function startNextStretchStep() {
   stretchElapsedMs = 0;
   stretchStartEpoch = Date.now();
   renderStretchUI();
-  announceStretchCue(STRETCH_STEPS[stretchIndex].voice);
+  announceCue(STRETCH_STEPS[stretchIndex].voice);
 }
 
 // For interruptions mid-stretch (a car passing on the road, etc.) — freezes
@@ -1543,7 +1661,7 @@ function tickStretch() {
       stretchElapsedMs = STRETCH_STEP_MS;
       stretchRunning = false;
       renderStretchUI();
-      announceStretchCue('終わり');
+      announceCue('終わり');
     } else {
       updateStretchTimerDisplay();
     }
@@ -1557,6 +1675,153 @@ el.stretchResetBtn.addEventListener('click', resetStretch);
 
 renderStretchUI();
 requestAnimationFrame(tickStretch);
+
+/* ---------- Reinforcement training timer (補強) ---------- */
+// Structurally like the stretch timer (manual "次へ" advance through a list
+// of steps, sharing the same voice/recording engine above), generalized to
+// handle a mix of fixed-duration steps (auto-counts and auto-stops, like
+// every stretch step) and rep/count-based steps with no real duration (the
+// manager just presses "次へ" whenever the group is done — see
+// REINFORCE_MENUS's durationSec comment). Also adds a menu picker since
+// there are multiple named workouts (フル・コアA・コアB・ループ・下肢).
+let reinforceMenuKey = 'フル';
+let reinforceIndex = -1;
+let reinforceRunning = false;
+let reinforceElapsedMs = 0;
+let reinforceStartEpoch = 0;
+
+function currentReinforceSteps() {
+  return REINFORCE_MENUS[reinforceMenuKey] || [];
+}
+
+function currentReinforceStep() {
+  const steps = currentReinforceSteps();
+  return reinforceIndex >= 0 && reinforceIndex < steps.length ? steps[reinforceIndex] : null;
+}
+
+function currentReinforceDurationMs() {
+  const step = currentReinforceStep();
+  return step && step.durationSec ? step.durationSec * 1000 : null;
+}
+
+function currentReinforceElapsedMs() {
+  if (!reinforceRunning) return reinforceElapsedMs;
+  return reinforceElapsedMs + (Date.now() - reinforceStartEpoch);
+}
+
+function updateReinforceTimerDisplay() {
+  const durationMs = currentReinforceDurationMs();
+  const rawElapsedMs = reinforceIndex === -1 ? 0 : currentReinforceElapsedMs();
+  const elapsedMs = durationMs !== null ? Math.min(rawElapsedMs, durationMs) : rawElapsedMs;
+  el.reinforceTimer.textContent = formatStretchTimer(elapsedMs);
+  el.reinforceTimer.classList.toggle('is-overtime', durationMs !== null && rawElapsedMs >= durationMs);
+}
+
+function renderReinforceMenuPicker() {
+  el.reinforceMenuPicker.innerHTML = '';
+  REINFORCE_MENU_ORDER.forEach((key) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-ghost btn-sm reinforce-menu-btn';
+    btn.textContent = key;
+    btn.classList.toggle('is-active', key === reinforceMenuKey);
+    btn.addEventListener('click', () => {
+      if (key === reinforceMenuKey) return;
+      reinforceMenuKey = key;
+      resetReinforce();
+      renderReinforceMenuPicker();
+    });
+    el.reinforceMenuPicker.appendChild(btn);
+  });
+}
+
+function renderReinforceUI() {
+  const steps = currentReinforceSteps();
+  const current = currentReinforceStep();
+  const next = reinforceIndex + 1 < steps.length ? steps[reinforceIndex + 1] : null;
+
+  el.reinforceCurrentGroup.textContent = current ? current.group : steps.length > 0 ? '準備中' : 'このメニューは準備中です';
+  el.reinforceCurrentSpec.textContent = current ? current.spec : '';
+  el.reinforceNextGroup.textContent = next
+    ? next.group
+    : reinforceIndex >= 0
+      ? 'これで終わりです'
+      : steps[0]
+        ? steps[0].group
+        : '';
+  el.reinforceNextSpeech.textContent = next ? next.speech : reinforceIndex >= 0 ? '' : steps[0] ? steps[0].speech : '';
+  el.reinforceProgress.textContent = `${Math.max(reinforceIndex + 1, 0)} / ${steps.length}`;
+
+  const durationMs = currentReinforceDurationMs();
+  const stepInProgress = reinforceIndex >= 0 && durationMs !== null && currentReinforceElapsedMs() < durationMs;
+  el.reinforceStartBtn.disabled = stepInProgress || steps.length === 0;
+  el.reinforceStartBtn.textContent = reinforceIndex === -1 ? 'スタート' : stepInProgress ? '実施中' : '次へ(スタート)';
+  el.reinforcePauseBtn.disabled = reinforceIndex === -1;
+  el.reinforcePauseBtn.textContent = reinforceRunning ? '一時停止' : '再開';
+  updateReinforceTimerDisplay();
+}
+
+function startNextReinforceStep() {
+  const steps = currentReinforceSteps();
+  reinforceIndex += 1;
+  if (reinforceIndex >= steps.length) {
+    reinforceIndex = -1;
+    reinforceRunning = false;
+    reinforceElapsedMs = 0;
+    renderReinforceUI();
+    return;
+  }
+  reinforceRunning = true;
+  reinforceElapsedMs = 0;
+  reinforceStartEpoch = Date.now();
+  renderReinforceUI();
+  announceCue(steps[reinforceIndex].voice);
+}
+
+function toggleReinforcePause() {
+  if (reinforceIndex === -1) return;
+  if (reinforceRunning) {
+    reinforceElapsedMs = currentReinforceElapsedMs();
+    reinforceRunning = false;
+  } else {
+    reinforceStartEpoch = Date.now();
+    reinforceRunning = true;
+  }
+  renderReinforceUI();
+}
+
+function resetReinforce() {
+  reinforceIndex = -1;
+  reinforceRunning = false;
+  reinforceElapsedMs = 0;
+  renderReinforceUI();
+}
+
+function tickReinforce() {
+  if (reinforceRunning) {
+    const durationMs = currentReinforceDurationMs();
+    if (durationMs !== null && currentReinforceElapsedMs() >= durationMs) {
+      // Auto-stop steps with a fixed duration, same as the stretch timer;
+      // rep/count-based steps (durationMs === null) never hit this — those
+      // just keep counting up until the manager presses "次へ" themselves.
+      reinforceElapsedMs = durationMs;
+      reinforceRunning = false;
+      renderReinforceUI();
+      announceCue('終わり');
+    } else {
+      updateReinforceTimerDisplay();
+    }
+  }
+  requestAnimationFrame(tickReinforce);
+}
+
+el.reinforceStartBtn.addEventListener('click', startNextReinforceStep);
+el.reinforcePauseBtn.addEventListener('click', toggleReinforcePause);
+el.reinforceResetBtn.addEventListener('click', resetReinforce);
+
+renderReinforceMenuPicker();
+renderReinforceUI();
+requestAnimationFrame(tickReinforce);
 
 /* ---------- TABATA timer ---------- */
 // Unlike the manually-advanced stretch timer, TABATA is meant to run

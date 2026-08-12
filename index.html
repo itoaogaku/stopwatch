@@ -22,6 +22,7 @@
       <button type="button" class="tab-btn" data-tab="pace">距離</button>
       <button type="button" class="tab-btn" data-tab="crossing">山試走</button>
       <button type="button" class="tab-btn" data-tab="stretch">ストレッチ</button>
+      <button type="button" class="tab-btn" data-tab="reinforce">補強</button>
       <button type="button" class="tab-btn" data-tab="tabata">TABATA</button>
     </div>
 
@@ -136,6 +137,44 @@
       </div>
     </div>
 
+    <div id="reinforceTab" class="tab-panel" hidden>
+      <div class="stretch-app">
+        <div class="stretch-header-row">
+          <button type="button" class="btn btn-ghost btn-sm" id="reinforceVoiceToggle">🔊 音声</button>
+          <div class="stretch-progress" id="reinforceProgress">0 / 0</div>
+        </div>
+
+        <label class="stretch-voice-picker">
+          <span>声を選ぶ(選ぶと試し読みします)</span>
+          <select id="reinforceVoiceSelect"></select>
+        </label>
+
+        <button type="button" class="btn btn-ghost btn-sm" id="reinforceRecordingsToggle">🎙 セリフを自分の声で録音する</button>
+
+        <div class="reinforce-menu-picker" id="reinforceMenuPicker"></div>
+
+        <div class="stretch-display-panel">
+          <div class="stretch-timer" id="reinforceTimer">0:00</div>
+          <div class="stretch-current-group" id="reinforceCurrentGroup">準備中</div>
+          <div class="reinforce-current-spec" id="reinforceCurrentSpec"></div>
+        </div>
+
+        <div class="stretch-next">
+          <div class="stretch-next-label">次は</div>
+          <div class="stretch-next-group" id="reinforceNextGroup"></div>
+          <div class="stretch-next-speech" id="reinforceNextSpeech"></div>
+        </div>
+
+        <div class="stretch-buttons">
+          <button type="button" class="btn btn-primary stretch-start-btn" id="reinforceStartBtn">スタート</button>
+          <div class="stretch-buttons-row">
+            <button type="button" class="btn btn-ghost btn-sm" id="reinforcePauseBtn" disabled>一時停止</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="reinforceResetBtn">最初に戻す</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="tabataTab" class="tab-panel" hidden>
       <div class="tabata-app">
         <div class="tabata-progress" id="tabataProgress">セット 0 / 8</div>
@@ -159,7 +198,7 @@
         <span>セリフを自分の声で録音する</span>
         <button type="button" class="stretch-recordings-close-btn" id="stretchRecordingsCloseBtn" title="閉じる">×</button>
       </div>
-      <p class="pace-desc">各セリフを自分の声で録音すると、この端末に保存されると同時に、チームで共有のサーバーにもアップロードされます(初回だけ共有用の合言葉の入力が必要です)。「声を選ぶ」で「🎙 録音音声(自分の声・チーム共有)」を選ぶと、再生時はその録音(この端末のものが無ければチームの録音)が使われ、録音がない項目だけ今まで通り音声合成で読み上げます。「反対」「終わり」など同じ文言を読む項目はまとめて1件として表示され、1回録音すればその文言を使う全ての種目に反映されます。</p>
+      <p class="pace-desc">各セリフを自分の声で録音すると、この端末に保存されると同時に、チームで共有のサーバーにもアップロードされます(初回だけ共有用の合言葉の入力が必要です)。「声を選ぶ」で「🎙 録音音声(自分の声・チーム共有)」を選ぶと、再生時はその録音(この端末のものが無ければチームの録音)が使われ、録音がない項目だけ今まで通り音声合成で読み上げます。「反対」「終わり」など同じ文言を読む項目はまとめて1件として表示され、1回録音すればその文言を使う全ての種目に反映されます。ストレッチ・補強どちらのタブから開いても同じ一覧です(両方のセリフがまとめて表示され、「反対」のように両方で使われる文言は共通の1件になります)。</p>
       <div id="stretchRecordingsList" class="stretch-recordings-list"></div>
     </div>
   </div>
