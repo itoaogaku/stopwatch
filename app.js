@@ -1011,9 +1011,9 @@ let stretchRunning = false;
 let stretchElapsedMs = 0; // accumulated time for the current step, while paused/stopped
 let stretchStartEpoch = 0; // epoch when the current running span began
 
-// Reads each step's cue aloud so the manager doesn't have to read it
-// themselves. Unlike the Vibration API, speechSynthesis works on iOS Safari.
-let stretchVoiceEnabled = 'speechSynthesis' in window;
+// Reads each step's cue aloud (via speechSynthesis or a recording — see
+// below) so the manager doesn't have to read it themselves.
+let stretchVoiceEnabled = true;
 
 // The Web Speech API can only use voices the browser itself exposes to
 // speechSynthesis.getVoices() — on iOS Safari that's a small, fixed list
@@ -1023,19 +1023,17 @@ let stretchVoiceEnabled = 'speechSynthesis' in window;
 // what's available in THIS browser and pick directly, with a live preview.
 let selectedVoiceURI = null;
 
+// Selecting this in the same dropdown, listed below the synthesized voices,
+// switches playback to recorded human audio (this device's own recordings,
+// falling back to the team's shared ones) instead of speechSynthesis.
+const RECORDED_VOICE_VALUE = '__recorded__';
+
 function populateStretchVoiceSelect() {
-  const voices = window.speechSynthesis.getVoices();
+  const voices = 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : [];
   const jaVoices = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith('ja'));
   const list = jaVoices.length > 0 ? jaVoices : voices;
 
   el.stretchVoiceSelect.innerHTML = '';
-  if (list.length === 0) {
-    const opt = document.createElement('option');
-    opt.textContent = '利用可能な音声が見つかりません';
-    el.stretchVoiceSelect.appendChild(opt);
-    el.stretchVoiceSelect.disabled = true;
-    return;
-  }
   el.stretchVoiceSelect.disabled = false;
   list.forEach((v) => {
     const opt = document.createElement('option');
@@ -1044,10 +1042,21 @@ function populateStretchVoiceSelect() {
     el.stretchVoiceSelect.appendChild(opt);
   });
 
-  const stillAvailable = selectedVoiceURI && list.some((v) => v.voiceURI === selectedVoiceURI);
-  if (!stillAvailable) {
-    const preferred = list.find((v) => /premium|enhanced|neural|siri/i.test(v.name)) || list[0];
-    selectedVoiceURI = preferred.voiceURI;
+  const recordedOpt = document.createElement('option');
+  recordedOpt.value = RECORDED_VOICE_VALUE;
+  recordedOpt.textContent = '🎙 録音音声(自分の声・チーム共有)';
+  el.stretchVoiceSelect.appendChild(recordedOpt);
+
+  if (selectedVoiceURI !== RECORDED_VOICE_VALUE) {
+    const stillAvailable = selectedVoiceURI && list.some((v) => v.voiceURI === selectedVoiceURI);
+    if (!stillAvailable) {
+      if (list.length > 0) {
+        const preferred = list.find((v) => /premium|enhanced|neural|siri/i.test(v.name)) || list[0];
+        selectedVoiceURI = preferred.voiceURI;
+      } else {
+        selectedVoiceURI = RECORDED_VOICE_VALUE; // no synthesized voice available at all — recordings are the only option
+      }
+    }
   }
   el.stretchVoiceSelect.value = selectedVoiceURI;
 }
@@ -1056,12 +1065,12 @@ if ('speechSynthesis' in window) {
   populateStretchVoiceSelect();
   window.speechSynthesis.addEventListener('voiceschanged', populateStretchVoiceSelect);
 } else {
-  el.stretchVoiceSelect.disabled = true;
+  populateStretchVoiceSelect(); // still offers the recorded-voice option even with no TTS at all
 }
 
 el.stretchVoiceSelect.addEventListener('change', () => {
   selectedVoiceURI = el.stretchVoiceSelect.value;
-  speakStretchCue('これはテストの音声です');
+  announceStretchCue('これはテストの音声です');
 });
 
 function speakStretchCue(text) {
@@ -1081,13 +1090,12 @@ function renderStretchVoiceToggle() {
   el.stretchVoiceToggle.textContent = stretchVoiceEnabled ? '🔊 音声' : '🔇 音声';
 }
 
-if (!('speechSynthesis' in window)) {
-  el.stretchVoiceToggle.disabled = true;
-  el.stretchVoiceToggle.title = 'この端末は音声読み上げに対応していません';
-}
 el.stretchVoiceToggle.addEventListener('click', () => {
   stretchVoiceEnabled = !stretchVoiceEnabled;
-  if (!stretchVoiceEnabled) window.speechSynthesis.cancel();
+  if (!stretchVoiceEnabled) {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    stopAnyPlayback();
+  }
   renderStretchVoiceToggle();
 });
 renderStretchVoiceToggle();
@@ -1100,9 +1108,114 @@ renderStretchVoiceToggle();
 const RECORDINGS_DB_NAME = 'stretchRecordings';
 const RECORDINGS_STORE_NAME = 'recordings';
 const recordingSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
-const recordingsMap = new Map(); // id -> Blob
+const recordingsMap = new Map(); // id -> Blob (this device's own recordings, in IndexedDB)
 let currentPlaybackAudio = null;
 let activeRecording = null; // { id, recorder, stream, chunks } while recording is in progress
+
+// Recordings can also be shared with the whole team via a small API hosted
+// alongside the trainer's separate knowledge-base site (itonomaki), which
+// already has FTP access to their Xserver hosting for storing files. Listing
+// is public; uploading/deleting needs a shared token (entered once, kept in
+// this browser's localStorage — never committed to source, unlike the
+// server-side FTP credentials it ultimately relies on).
+const SHARED_AUDIO_API_URL = 'https://itonomaki-55ve.vercel.app/api/stretch-audio';
+const SHARED_AUDIO_TOKEN_KEY = 'stretchAudioToken';
+const sharedRecordingsMap = new Map(); // text -> url
+
+function getStoredAudioToken() {
+  try {
+    return localStorage.getItem(SHARED_AUDIO_TOKEN_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function promptForAudioToken() {
+  const input = prompt('チーム共有のアップロード用の合言葉を入力してください(この端末に保存され、次回からは聞かれません)');
+  const token = input ? input.trim() : '';
+  if (token) {
+    try {
+      localStorage.setItem(SHARED_AUDIO_TOKEN_KEY, token);
+    } catch {
+      /* localStorage unavailable (private browsing etc.) — just skip sharing this once */
+    }
+  }
+  return token;
+}
+
+async function loadSharedRecordings() {
+  try {
+    const res = await fetch(SHARED_AUDIO_API_URL);
+    if (!res.ok) return;
+    const data = await res.json();
+    sharedRecordingsMap.clear();
+    (data.items || []).forEach((item) => {
+      if (item && item.text && item.url) sharedRecordingsMap.set(item.text, item.url);
+    });
+  } catch {
+    // Offline, or the shared server is unreachable — local recordings and
+    // speech synthesis still work fine without it.
+  }
+}
+
+async function uploadRecordingToServer(text, blob, allowRetry = true) {
+  let token = getStoredAudioToken();
+  if (!token) token = promptForAudioToken();
+  if (!token) return false; // declined to enter one — recording stays local-only
+
+  const form = new FormData();
+  form.append('file', blob, 'cue');
+  form.append('text', text);
+  try {
+    const res = await fetch(SHARED_AUDIO_API_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    if (res.status === 401) {
+      try {
+        localStorage.removeItem(SHARED_AUDIO_TOKEN_KEY);
+      } catch {
+        /* ignore */
+      }
+      if (!allowRetry) return false;
+      alert('合言葉が正しくありませんでした。もう一度入力してください。');
+      return uploadRecordingToServer(text, blob, false);
+    }
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (data && data.url) sharedRecordingsMap.set(text, data.url);
+    return true;
+  } catch {
+    return false; // offline, etc. — local recording is still saved
+  }
+}
+
+async function deleteRecordingFromServer(text) {
+  let token = getStoredAudioToken();
+  if (!token) token = promptForAudioToken();
+  if (!token) return false;
+  try {
+    const res = await fetch(`${SHARED_AUDIO_API_URL}?text=${encodeURIComponent(text)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      try {
+        localStorage.removeItem(SHARED_AUDIO_TOKEN_KEY);
+      } catch {
+        /* ignore */
+      }
+      alert('合言葉が正しくありませんでした。共有からの削除はできませんでしたが、この端末からは削除されました。');
+      return false;
+    }
+    if (!res.ok) return false;
+    sharedRecordingsMap.delete(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function openRecordingsDB() {
   return new Promise((resolve, reject) => {
@@ -1199,30 +1312,46 @@ function createRecordingRow(item) {
   groupEl.textContent = item.text;
   textEl.textContent = `使用箇所: ${item.groupNames.join('、')}`;
 
+  if (!recordingSupported) {
+    recordBtn.disabled = true;
+    recordBtn.title = 'この端末は録音に対応していません(再生・削除は可能です)';
+  }
+
   function refreshRowStatus() {
-    const has = recordingsMap.has(item.id);
-    node.classList.toggle('is-recorded', has);
-    statusEl.textContent = has ? '録音済み' : '未録音';
-    playBtn.disabled = !has;
-    deleteBtn.disabled = !has;
+    const hasLocal = recordingsMap.has(item.id);
+    const hasShared = sharedRecordingsMap.has(item.id);
+    node.classList.toggle('is-recorded', hasLocal || hasShared);
+    statusEl.textContent = hasShared ? 'チーム共有済み' : hasLocal ? '端末のみ(未共有)' : '未録音';
+    playBtn.disabled = !(hasLocal || hasShared);
+    deleteBtn.disabled = !(hasLocal || hasShared);
   }
   refreshRowStatus();
 
   recordBtn.addEventListener('click', () => toggleRecording(item.id, recordBtn, refreshRowStatus));
 
   playBtn.addEventListener('click', () => {
-    const blob = recordingsMap.get(item.id);
-    if (!blob) return;
     stopAnyPlayback();
-    const audio = new Audio(URL.createObjectURL(blob));
-    currentPlaybackAudio = audio;
-    audio.play();
+    const blob = recordingsMap.get(item.id);
+    if (blob) {
+      const audio = new Audio(URL.createObjectURL(blob));
+      currentPlaybackAudio = audio;
+      audio.play();
+      return;
+    }
+    const url = sharedRecordingsMap.get(item.id);
+    if (url) {
+      const audio = new Audio(url);
+      currentPlaybackAudio = audio;
+      audio.play();
+    }
   });
 
   deleteBtn.addEventListener('click', async () => {
+    const hadShared = sharedRecordingsMap.has(item.id);
     recordingsMap.delete(item.id);
-    refreshRowStatus();
     await deleteRecordingFromDB(item.id);
+    if (hadShared) await deleteRecordingFromServer(item.id);
+    refreshRowStatus();
   });
 
   return node;
@@ -1266,6 +1395,16 @@ async function toggleRecording(id, btn, refreshRowStatus) {
       recordingsMap.set(id, blob);
       refreshRowStatus();
       await saveRecordingToDB(id, blob);
+
+      btn.disabled = true;
+      btn.textContent = '☁️ 共有中…';
+      const uploaded = await uploadRecordingToServer(id, blob);
+      btn.disabled = false;
+      btn.textContent = '🔴 録音';
+      refreshRowStatus();
+      if (!uploaded) {
+        alert('チームへの共有アップロードに失敗しました(この端末には保存されています)。通信状況を確認して、もう一度「🔴 録音」を押すと再試行できます。');
+      }
     }
   });
 
@@ -1275,31 +1414,41 @@ async function toggleRecording(id, btn, refreshRowStatus) {
   recorder.start();
 }
 
-// Prefers a recorded take for this exact cue text; falls back to
-// speechSynthesis when nothing's been recorded yet. Recordings are keyed by
-// the spoken text itself, so every step that says e.g. "反対" shares one
-// recording automatically.
+// Only used when "🎙 録音音声" is the selected voice: prefers this device's
+// own recording for the exact cue text, then the team's shared recording,
+// falling back to speechSynthesis if neither exists. Any other selected
+// voice always speaks via speechSynthesis, ignoring recordings entirely.
+// Recordings are keyed by the spoken text itself, so every step that says
+// e.g. "反対" shares one recording automatically.
 function announceStretchCue(text) {
+  if (!stretchVoiceEnabled) return;
   stopAnyPlayback();
-  const blob = recordingsMap.get(text);
-  if (blob) {
-    const audio = new Audio(URL.createObjectURL(blob));
-    currentPlaybackAudio = audio;
-    audio.play();
-    return;
+  if (selectedVoiceURI === RECORDED_VOICE_VALUE) {
+    const blob = recordingsMap.get(text);
+    if (blob) {
+      const audio = new Audio(URL.createObjectURL(blob));
+      currentPlaybackAudio = audio;
+      audio.play();
+      return;
+    }
+    const url = sharedRecordingsMap.get(text);
+    if (url) {
+      const audio = new Audio(url);
+      currentPlaybackAudio = audio;
+      audio.play();
+      return;
+    }
   }
   speakStretchCue(text);
 }
 
-if (!recordingSupported) {
-  el.stretchRecordingsToggle.disabled = true;
-  el.stretchRecordingsToggle.title = 'この端末は録音に対応していません';
-} else {
-  buildAllRecordingRows();
-  loadAllRecordings().then(buildAllRecordingRows).catch(() => {});
-}
+buildAllRecordingRows();
+loadAllRecordings().then(buildAllRecordingRows).catch(() => {});
+loadSharedRecordings().then(buildAllRecordingRows).catch(() => {});
+
 function openRecordingsModal() {
   el.stretchRecordingsModal.hidden = false;
+  loadSharedRecordings().then(buildAllRecordingRows).catch(() => {});
 }
 function closeRecordingsModal() {
   el.stretchRecordingsModal.hidden = true;
