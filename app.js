@@ -31,6 +31,9 @@ const el = {
   stretchRecordingsCloseBtn: document.getElementById('stretchRecordingsCloseBtn'),
   stretchRecordingsList: document.getElementById('stretchRecordingsList'),
   recordingRowTemplate: document.getElementById('recordingRowTemplate'),
+  recordingSetSelect: document.getElementById('recordingSetSelect'),
+  recordingSetNewBtn: document.getElementById('recordingSetNewBtn'),
+  recordingSetDeleteBtn: document.getElementById('recordingSetDeleteBtn'),
   stretchTimer: document.getElementById('stretchTimer'),
   stretchCurrentGroup: document.getElementById('stretchCurrentGroup'),
   stretchNextGroup: document.getElementById('stretchNextGroup'),
@@ -1119,10 +1122,27 @@ let voiceEnabled = true;
 // what's available in THIS browser and pick directly, with a live preview.
 let selectedVoiceURI = null;
 
-// Selecting this in the same dropdown, listed below the synthesized voices,
-// switches playback to recorded human audio (this device's own recordings,
-// falling back to the team's shared ones) instead of speechSynthesis.
-const RECORDED_VOICE_VALUE = '__recorded__';
+// Recordings are grouped into named "sets" (e.g. one per coach) so several
+// complete recordings can coexist and be switched between for playback,
+// rather than the whole team sharing one anonymous pool. Selecting a set's
+// entry in the same dropdown, listed below the synthesized voices, switches
+// playback to that set's recorded human audio (this device's own copy,
+// falling back to the team's shared copy) instead of speechSynthesis. The
+// value format is "recorded:<set name>".
+const DEFAULT_SET_NAME = 'デフォルト(これまでの録音)'; // pre-existing recordings from before sets existed
+const RECORDED_VOICE_PREFIX = 'recorded:';
+const knownSets = new Set([DEFAULT_SET_NAME]); // every set name seen so far, local or shared
+let activeRecordingSetId = DEFAULT_SET_NAME; // which set the recordings modal is currently viewing/recording into
+
+function recordedVoiceValue(setName) {
+  return RECORDED_VOICE_PREFIX + setName;
+}
+function isRecordedVoiceValue(value) {
+  return typeof value === 'string' && value.startsWith(RECORDED_VOICE_PREFIX);
+}
+function setNameFromVoiceValue(value) {
+  return value.slice(RECORDED_VOICE_PREFIX.length);
+}
 
 // ストレッチ・補強タブそれぞれに同じ操作を置いているので、両方のUI要素を
 // まとめて同期させる。どちらか一方が無いページ構成でも動くようフィルタする。
@@ -1134,14 +1154,18 @@ function populateVoiceSelect() {
   const jaVoices = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith('ja'));
   const list = jaVoices.length > 0 ? jaVoices : voices;
 
-  if (selectedVoiceURI !== RECORDED_VOICE_VALUE) {
+  if (isRecordedVoiceValue(selectedVoiceURI)) {
+    if (!knownSets.has(setNameFromVoiceValue(selectedVoiceURI))) {
+      selectedVoiceURI = recordedVoiceValue(DEFAULT_SET_NAME); // its set was deleted — fall back to the default set
+    }
+  } else {
     const stillAvailable = selectedVoiceURI && list.some((v) => v.voiceURI === selectedVoiceURI);
     if (!stillAvailable) {
       if (list.length > 0) {
         const preferred = list.find((v) => /premium|enhanced|neural|siri/i.test(v.name)) || list[0];
         selectedVoiceURI = preferred.voiceURI;
       } else {
-        selectedVoiceURI = RECORDED_VOICE_VALUE; // no synthesized voice available at all — recordings are the only option
+        selectedVoiceURI = recordedVoiceValue(DEFAULT_SET_NAME); // no synthesized voice available at all — recordings are the only option
       }
     }
   }
@@ -1155,10 +1179,12 @@ function populateVoiceSelect() {
       opt.textContent = `${v.name} (${v.lang})`;
       select.appendChild(opt);
     });
-    const recordedOpt = document.createElement('option');
-    recordedOpt.value = RECORDED_VOICE_VALUE;
-    recordedOpt.textContent = '🎙 録音音声(自分の声・チーム共有)';
-    select.appendChild(recordedOpt);
+    knownSets.forEach((setName) => {
+      const opt = document.createElement('option');
+      opt.value = recordedVoiceValue(setName);
+      opt.textContent = `🎙 ${setName}`;
+      select.appendChild(opt);
+    });
     select.value = selectedVoiceURI;
   });
 }
@@ -1219,9 +1245,26 @@ renderVoiceToggle();
 const RECORDINGS_DB_NAME = 'stretchRecordings';
 const RECORDINGS_STORE_NAME = 'recordings';
 const recordingSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
-const recordingsMap = new Map(); // id -> Blob (this device's own recordings, in IndexedDB)
+const recordingsMap = new Map(); // setName -> Map<text, Blob> (this device's own recordings, in IndexedDB)
 let currentPlaybackAudio = null;
-let activeRecording = null; // { id, recorder, stream, chunks } while recording is in progress
+let activeRecording = null; // { setName, id, recorder, stream, chunks } while recording is in progress
+
+function nestedGet(map, outerKey, innerKey) {
+  const inner = map.get(outerKey);
+  return inner ? inner.get(innerKey) : undefined;
+}
+function nestedHas(map, outerKey, innerKey) {
+  const inner = map.get(outerKey);
+  return !!inner && inner.has(innerKey);
+}
+function nestedSet(map, outerKey, innerKey, value) {
+  if (!map.has(outerKey)) map.set(outerKey, new Map());
+  map.get(outerKey).set(innerKey, value);
+}
+function nestedDelete(map, outerKey, innerKey) {
+  const inner = map.get(outerKey);
+  if (inner) inner.delete(innerKey);
+}
 
 // Recordings can also be shared with the whole team via a small API hosted
 // alongside the trainer's separate knowledge-base site (itonomaki), which
@@ -1231,7 +1274,7 @@ let activeRecording = null; // { id, recorder, stream, chunks } while recording 
 // server-side FTP credentials it ultimately relies on).
 const SHARED_AUDIO_API_URL = 'https://itonomaki-55ve.vercel.app/api/stretch-audio';
 const SHARED_AUDIO_TOKEN_KEY = 'stretchAudioToken';
-const sharedRecordingsMap = new Map(); // text -> url
+const sharedRecordingsMap = new Map(); // setName -> Map<text, url>
 
 function getStoredAudioToken() {
   try {
@@ -1261,7 +1304,10 @@ async function loadSharedRecordings() {
     const data = await res.json();
     sharedRecordingsMap.clear();
     (data.items || []).forEach((item) => {
-      if (item && item.text && item.url) sharedRecordingsMap.set(item.text, item.url);
+      if (!item || !item.text || !item.url) return;
+      const setName = item.setName || DEFAULT_SET_NAME;
+      knownSets.add(setName);
+      nestedSet(sharedRecordingsMap, setName, item.text, item.url);
     });
   } catch {
     // Offline, or the shared server is unreachable — local recordings and
@@ -1269,7 +1315,7 @@ async function loadSharedRecordings() {
   }
 }
 
-async function uploadRecordingToServer(text, blob, allowRetry = true) {
+async function uploadRecordingToServer(setName, text, blob, allowRetry = true) {
   let token = getStoredAudioToken();
   if (!token) token = promptForAudioToken();
   if (!token) return false; // declined to enter one — recording stays local-only
@@ -1277,6 +1323,7 @@ async function uploadRecordingToServer(text, blob, allowRetry = true) {
   const form = new FormData();
   form.append('file', blob, 'cue');
   form.append('text', text);
+  form.append('setName', setName);
   try {
     const res = await fetch(SHARED_AUDIO_API_URL, {
       method: 'POST',
@@ -1291,23 +1338,23 @@ async function uploadRecordingToServer(text, blob, allowRetry = true) {
       }
       if (!allowRetry) return false;
       alert('合言葉が正しくありませんでした。もう一度入力してください。');
-      return uploadRecordingToServer(text, blob, false);
+      return uploadRecordingToServer(setName, text, blob, false);
     }
     if (!res.ok) return false;
     const data = await res.json();
-    if (data && data.url) sharedRecordingsMap.set(text, data.url);
+    if (data && data.url) nestedSet(sharedRecordingsMap, setName, text, data.url);
     return true;
   } catch {
     return false; // offline, etc. — local recording is still saved
   }
 }
 
-async function deleteRecordingFromServer(text) {
+async function deleteRecordingFromServer(setName, text) {
   let token = getStoredAudioToken();
   if (!token) token = promptForAudioToken();
   if (!token) return false;
   try {
-    const res = await fetch(`${SHARED_AUDIO_API_URL}?text=${encodeURIComponent(text)}`, {
+    const res = await fetch(`${SHARED_AUDIO_API_URL}?setName=${encodeURIComponent(setName)}&text=${encodeURIComponent(text)}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -1321,8 +1368,32 @@ async function deleteRecordingFromServer(text) {
       return false;
     }
     if (!res.ok) return false;
-    sharedRecordingsMap.delete(text);
+    nestedDelete(sharedRecordingsMap, setName, text);
     return true;
+  } catch {
+    return false;
+  }
+}
+
+async function deleteSetFromServer(setName) {
+  let token = getStoredAudioToken();
+  if (!token) token = promptForAudioToken();
+  if (!token) return false;
+  try {
+    const res = await fetch(`${SHARED_AUDIO_API_URL}?setName=${encodeURIComponent(setName)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      try {
+        localStorage.removeItem(SHARED_AUDIO_TOKEN_KEY);
+      } catch {
+        /* ignore */
+      }
+      alert('合言葉が正しくありませんでした。共有からの削除はできませんでしたが、この端末からは削除されました。');
+      return false;
+    }
+    return res.ok;
   } catch {
     return false;
   }
@@ -1339,6 +1410,21 @@ function openRecordingsDB() {
   });
 }
 
+// The IndexedDB key for a (set, text) pair. Recordings made before sets
+// existed are stored under a plain-text key (no set prefix); keeping that
+// exact scheme for DEFAULT_SET_NAME means those old recordings still load
+// with no migration. A NUL separator (never appears in real speech text or
+// set names typed by a person) keeps other sets' composite keys unambiguous.
+const DB_KEY_SEP = '\u0000';
+function dbKeyFor(setName, text) {
+  return setName === DEFAULT_SET_NAME ? text : `${setName}${DB_KEY_SEP}${text}`;
+}
+function parseDbKey(key) {
+  const sep = key.indexOf(DB_KEY_SEP);
+  if (sep === -1) return { setName: DEFAULT_SET_NAME, text: key };
+  return { setName: key.slice(0, sep), text: key.slice(sep + 1) };
+}
+
 async function loadAllRecordings() {
   const db = await openRecordingsDB();
   return new Promise((resolve, reject) => {
@@ -1349,7 +1435,11 @@ async function loadAllRecordings() {
       const getAll = store.getAll ? store.getAll() : null;
       if (getAll) {
         getAll.onsuccess = () => {
-          keys.forEach((key, i) => recordingsMap.set(key, getAll.result[i]));
+          keys.forEach((key, i) => {
+            const { setName, text } = parseDbKey(key);
+            knownSets.add(setName);
+            nestedSet(recordingsMap, setName, text, getAll.result[i]);
+          });
           resolve();
         };
         getAll.onerror = () => reject(getAll.error);
@@ -1361,23 +1451,41 @@ async function loadAllRecordings() {
   });
 }
 
-async function saveRecordingToDB(id, blob) {
+async function saveRecordingToDB(setName, text, blob) {
   const db = await openRecordingsDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(RECORDINGS_STORE_NAME, 'readwrite');
-    tx.objectStore(RECORDINGS_STORE_NAME).put(blob, id);
+    tx.objectStore(RECORDINGS_STORE_NAME).put(blob, dbKeyFor(setName, text));
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
 
-async function deleteRecordingFromDB(id) {
+async function deleteRecordingFromDB(setName, text) {
   const db = await openRecordingsDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(RECORDINGS_STORE_NAME, 'readwrite');
-    tx.objectStore(RECORDINGS_STORE_NAME).delete(id);
+    tx.objectStore(RECORDINGS_STORE_NAME).delete(dbKeyFor(setName, text));
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function deleteSetFromDB(setName) {
+  const db = await openRecordingsDB();
+  return new Promise((resolve, reject) => {
+    const store = db.transaction(RECORDINGS_STORE_NAME, 'readwrite').objectStore(RECORDINGS_STORE_NAME);
+    const request = store.openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) {
+        resolve();
+        return;
+      }
+      if (parseDbKey(cursor.key).setName === setName) cursor.delete();
+      cursor.continue();
+    };
+    request.onerror = () => reject(request.error);
   });
 }
 
@@ -1394,7 +1502,8 @@ function pickRecordingMimeType() {
 // recording covers every step that says the same thing, instead of making
 // the manager record the same word over and over. Pools cues from every
 // menu across both the ストレッチ and 補強 tabs, since they share the same
-// recording/playback engine — a "反対" recorded from either tab covers both.
+// recording/playback engine — a "反対" recorded from either tab (into the
+// same set) covers both. Independent of which set is being viewed/recorded.
 function buildRecordingItems() {
   const byText = new Map(); // text -> groupNames[]
   function addStep(step) {
@@ -1415,6 +1524,58 @@ function stopAnyPlayback() {
   }
 }
 
+// Reflects knownSets into the modal's own set picker (independent of the
+// "声を選ぶ" playback pickers — this one just controls which set the modal
+// is currently viewing/recording into, via activeRecordingSetId).
+function populateRecordingSetSelect() {
+  el.recordingSetSelect.innerHTML = '';
+  knownSets.forEach((setName) => {
+    const opt = document.createElement('option');
+    opt.value = setName;
+    opt.textContent = setName;
+    el.recordingSetSelect.appendChild(opt);
+  });
+  if (!knownSets.has(activeRecordingSetId)) activeRecordingSetId = DEFAULT_SET_NAME;
+  el.recordingSetSelect.value = activeRecordingSetId;
+  el.recordingSetDeleteBtn.disabled = activeRecordingSetId === DEFAULT_SET_NAME;
+}
+
+el.recordingSetSelect.addEventListener('change', () => {
+  activeRecordingSetId = el.recordingSetSelect.value;
+  el.recordingSetDeleteBtn.disabled = activeRecordingSetId === DEFAULT_SET_NAME;
+  buildAllRecordingRows();
+});
+
+el.recordingSetNewBtn.addEventListener('click', () => {
+  const input = prompt('新しいセットの名前を入力してください(例:田中コーチ)');
+  const name = input ? input.trim() : '';
+  if (!name) return;
+  knownSets.add(name);
+  activeRecordingSetId = name;
+  populateRecordingSetSelect();
+  populateVoiceSelect(); // the new set should also appear as a playback choice right away
+  buildAllRecordingRows();
+});
+
+el.recordingSetDeleteBtn.addEventListener('click', async () => {
+  if (activeRecordingSetId === DEFAULT_SET_NAME) return; // guarded by disabled state too
+  const setName = activeRecordingSetId;
+  if (!confirm(`セット「${setName}」の録音を全て削除します。よろしいですか?`)) return;
+
+  recordingsMap.delete(setName);
+  await deleteSetFromDB(setName);
+  const hadShared = sharedRecordingsMap.has(setName);
+  sharedRecordingsMap.delete(setName);
+  knownSets.delete(setName);
+  if (hadShared) await deleteSetFromServer(setName);
+  if (selectedVoiceURI === recordedVoiceValue(setName)) selectedVoiceURI = null; // populateVoiceSelect() re-picks a fallback
+
+  activeRecordingSetId = DEFAULT_SET_NAME;
+  populateRecordingSetSelect();
+  populateVoiceSelect();
+  buildAllRecordingRows();
+});
+
 function createRecordingRow(item) {
   const node = el.recordingRowTemplate.content.firstElementChild.cloneNode(true);
   const groupEl = node.querySelector('.recording-row-group');
@@ -1432,9 +1593,11 @@ function createRecordingRow(item) {
     recordBtn.title = 'この端末は録音に対応していません(再生・削除は可能です)';
   }
 
+  // Reads activeRecordingSetId live (not captured at row-build time) so
+  // these handlers always act on whichever set is currently selected.
   function refreshRowStatus() {
-    const hasLocal = recordingsMap.has(item.id);
-    const hasShared = sharedRecordingsMap.has(item.id);
+    const hasLocal = nestedHas(recordingsMap, activeRecordingSetId, item.id);
+    const hasShared = nestedHas(sharedRecordingsMap, activeRecordingSetId, item.id);
     node.classList.toggle('is-recorded', hasLocal || hasShared);
     statusEl.textContent = hasShared ? 'チーム共有済み' : hasLocal ? '端末のみ(未共有)' : '未録音';
     playBtn.disabled = !(hasLocal || hasShared);
@@ -1442,18 +1605,18 @@ function createRecordingRow(item) {
   }
   refreshRowStatus();
 
-  recordBtn.addEventListener('click', () => toggleRecording(item.id, recordBtn, refreshRowStatus));
+  recordBtn.addEventListener('click', () => toggleRecording(activeRecordingSetId, item.id, recordBtn, refreshRowStatus));
 
   playBtn.addEventListener('click', () => {
     stopAnyPlayback();
-    const blob = recordingsMap.get(item.id);
+    const blob = nestedGet(recordingsMap, activeRecordingSetId, item.id);
     if (blob) {
       const audio = new Audio(URL.createObjectURL(blob));
       currentPlaybackAudio = audio;
       audio.play();
       return;
     }
-    const url = sharedRecordingsMap.get(item.id);
+    const url = nestedGet(sharedRecordingsMap, activeRecordingSetId, item.id);
     if (url) {
       const audio = new Audio(url);
       currentPlaybackAudio = audio;
@@ -1462,10 +1625,11 @@ function createRecordingRow(item) {
   });
 
   deleteBtn.addEventListener('click', async () => {
-    const hadShared = sharedRecordingsMap.has(item.id);
-    recordingsMap.delete(item.id);
-    await deleteRecordingFromDB(item.id);
-    if (hadShared) await deleteRecordingFromServer(item.id);
+    const setName = activeRecordingSetId;
+    const hadShared = nestedHas(sharedRecordingsMap, setName, item.id);
+    nestedDelete(recordingsMap, setName, item.id);
+    await deleteRecordingFromDB(setName, item.id);
+    if (hadShared) await deleteRecordingFromServer(setName, item.id);
     refreshRowStatus();
   });
 
@@ -1479,8 +1643,8 @@ function buildAllRecordingRows() {
   });
 }
 
-async function toggleRecording(id, btn, refreshRowStatus) {
-  if (activeRecording && activeRecording.id === id) {
+async function toggleRecording(setName, id, btn, refreshRowStatus) {
+  if (activeRecording && activeRecording.setName === setName && activeRecording.id === id) {
     activeRecording.recorder.stop(); // onstop handles saving + cleanup
     return;
   }
@@ -1507,13 +1671,13 @@ async function toggleRecording(id, btn, refreshRowStatus) {
     btn.textContent = '🔴 録音';
     const blob = new Blob(chunks, { type: recorder.mimeType || mimeType || 'audio/webm' });
     if (blob.size > 0) {
-      recordingsMap.set(id, blob);
+      nestedSet(recordingsMap, setName, id, blob);
       refreshRowStatus();
-      await saveRecordingToDB(id, blob);
+      await saveRecordingToDB(setName, id, blob);
 
       btn.disabled = true;
       btn.textContent = '☁️ 共有中…';
-      const uploaded = await uploadRecordingToServer(id, blob);
+      const uploaded = await uploadRecordingToServer(setName, id, blob);
       btn.disabled = false;
       btn.textContent = '🔴 録音';
       refreshRowStatus();
@@ -1523,31 +1687,33 @@ async function toggleRecording(id, btn, refreshRowStatus) {
     }
   });
 
-  activeRecording = { id, recorder, stream, chunks };
+  activeRecording = { setName, id, recorder, stream, chunks };
   btn.classList.add('is-recording');
   btn.textContent = '⏹ 停止';
   recorder.start();
 }
 
-// Only used when "🎙 録音音声" is the selected voice: prefers this device's
-// own recording for the exact cue text, then the team's shared recording,
-// falling back to speechSynthesis if neither exists. Any other selected
-// voice always speaks via speechSynthesis, ignoring recordings entirely.
-// Recordings are keyed by the spoken text itself, so every step that says
-// e.g. "反対" shares one recording automatically — including across the
-// ストレッチ and 補強 tabs, which both call this same function.
+// Only used when the selected voice is a "🎙 <セット名>" entry: prefers this
+// device's own recording (in that set) for the exact cue text, then the
+// team's shared recording (in that set), falling back to speechSynthesis if
+// neither exists. Any TTS voice always speaks via speechSynthesis, ignoring
+// recordings entirely. Recordings are keyed by the spoken text itself, so
+// every step that says e.g. "反対" shares one recording within a set
+// automatically — including across the ストレッチ and 補強 tabs, which both
+// call this same function.
 function announceCue(text) {
   if (!voiceEnabled) return;
   stopAnyPlayback();
-  if (selectedVoiceURI === RECORDED_VOICE_VALUE) {
-    const blob = recordingsMap.get(text);
+  if (isRecordedVoiceValue(selectedVoiceURI)) {
+    const setName = setNameFromVoiceValue(selectedVoiceURI);
+    const blob = nestedGet(recordingsMap, setName, text);
     if (blob) {
       const audio = new Audio(URL.createObjectURL(blob));
       currentPlaybackAudio = audio;
       audio.play();
       return;
     }
-    const url = sharedRecordingsMap.get(text);
+    const url = nestedGet(sharedRecordingsMap, setName, text);
     if (url) {
       const audio = new Audio(url);
       currentPlaybackAudio = audio;
@@ -1558,13 +1724,32 @@ function announceCue(text) {
   speakCue(text);
 }
 
+populateRecordingSetSelect();
 buildAllRecordingRows();
-loadAllRecordings().then(buildAllRecordingRows).catch(() => {});
-loadSharedRecordings().then(buildAllRecordingRows).catch(() => {});
+loadAllRecordings()
+  .then(() => {
+    populateRecordingSetSelect();
+    populateVoiceSelect();
+    buildAllRecordingRows();
+  })
+  .catch(() => {});
+loadSharedRecordings()
+  .then(() => {
+    populateRecordingSetSelect();
+    populateVoiceSelect();
+    buildAllRecordingRows();
+  })
+  .catch(() => {});
 
 function openRecordingsModal() {
   el.stretchRecordingsModal.hidden = false;
-  loadSharedRecordings().then(buildAllRecordingRows).catch(() => {});
+  loadSharedRecordings()
+    .then(() => {
+      populateRecordingSetSelect();
+      populateVoiceSelect();
+      buildAllRecordingRows();
+    })
+    .catch(() => {});
 }
 function closeRecordingsModal() {
   el.stretchRecordingsModal.hidden = true;

@@ -950,6 +950,42 @@ html, body {
   min-height: 0;
 }
 
+.recording-set-picker {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.recording-set-picker-select {
+  flex: 1 1 160px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.recording-set-picker-select span {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-weight: 700;
+}
+.recording-set-picker-select select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px;
+}
+#recordingSetNewBtn,
+#recordingSetDeleteBtn {
+  flex: 0 0 auto;
+}
+
 .recording-row {
   background: var(--panel-2);
   border: 1px solid var(--border);

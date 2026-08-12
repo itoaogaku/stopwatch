@@ -198,7 +198,17 @@
         <span>セリフを自分の声で録音する</span>
         <button type="button" class="stretch-recordings-close-btn" id="stretchRecordingsCloseBtn" title="閉じる">×</button>
       </div>
-      <p class="pace-desc">各セリフを自分の声で録音すると、この端末に保存されると同時に、チームで共有のサーバーにもアップロードされます(初回だけ共有用の合言葉の入力が必要です)。「声を選ぶ」で「🎙 録音音声(自分の声・チーム共有)」を選ぶと、再生時はその録音(この端末のものが無ければチームの録音)が使われ、録音がない項目だけ今まで通り音声合成で読み上げます。「反対」「終わり」など同じ文言を読む項目はまとめて1件として表示され、1回録音すればその文言を使う全ての種目に反映されます。ストレッチ・補強どちらのタブから開いても同じ一覧です(両方のセリフがまとめて表示され、「反対」のように両方で使われる文言は共通の1件になります)。</p>
+      <p class="pace-desc">録音は名前を付けた「セット」ごとにまとめて保存されます。例えば人ごとに1つずつセットを作って録音し、実際の読み上げでは「声を選ぶ」からそのセットを選んで使えます。「反対」「終わり」など同じ文言を読む項目はまとめて1件として表示され、1回録音すればその文言を使う全ての種目(ストレッチ・補強どちらも)に反映されます。録音はこの端末に保存されると同時に、自動でチーム共有サーバーにもアップロードされます(初回だけ共有用の合言葉の入力が必要です)。</p>
+
+      <div class="recording-set-picker">
+        <label class="recording-set-picker-select">
+          <span>セット</span>
+          <select id="recordingSetSelect"></select>
+        </label>
+        <button type="button" class="btn btn-ghost btn-sm" id="recordingSetNewBtn">+ 新しいセット</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="recordingSetDeleteBtn">🗑 セットを削除</button>
+      </div>
+
       <div id="stretchRecordingsList" class="stretch-recordings-list"></div>
     </div>
   </div>
