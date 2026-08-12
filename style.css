@@ -959,7 +959,7 @@ html, body {
 }
 .tabata-start-btn {
   width: 100%;
-  min-height: 64px;
-  font-size: 20px;
+  min-height: 128px;
+  font-size: 40px;
 }
 
