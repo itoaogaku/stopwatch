@@ -1116,6 +1116,7 @@ function tickStretch() {
       stretchElapsedMs = STRETCH_STEP_MS;
       stretchRunning = false;
       renderStretchUI();
+      speakStretchCue('終わり');
     } else {
       updateStretchTimerDisplay();
     }
