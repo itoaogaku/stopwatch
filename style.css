@@ -861,8 +861,8 @@ html, body {
 }
 .stretch-start-btn {
   width: 100%;
-  min-height: 64px;
-  font-size: 18px;
+  min-height: 192px;
+  font-size: 54px;
 }
 
 .stretch-next {
