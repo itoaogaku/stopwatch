@@ -1,7 +1,7 @@
 /*
- * Palette lifted from a well-worn SEIKO professional stopwatch:
- * gunmetal-grey resin case, a sage-grey LCD panel with dark ink
- * segments, and a single bright red MODE button as the only accent.
+ * Palette based on a well-worn SEIKO professional stopwatch: gunmetal-grey
+ * resin case, a sage-grey LCD panel with dark ink segments, and a single
+ * MODE-button accent color (currently teal-green, per request).
  */
 :root {
   --bg: #ffffff;
@@ -11,10 +11,10 @@
   --text: #f1ede4;
   --text-dim: #a89f92;
   --ink-dim: #8a8072;
-  --accent: #d1272f;
-  --accent-dim: #5c1215;
-  --danger: #d1272f;
-  --danger-dim: #4a201f;
+  --accent: #3d8b85;
+  --accent-dim: #1b3f3c;
+  --danger: #3d8b85;
+  --danger-dim: #16332f;
   --lcd-bg: #c7cfbd;
   --lcd-ink: #383f31;
   --lcd-ink-dim: #6b7263;
@@ -28,7 +28,7 @@
   --child-panel-2: #242f52;
   --child-border: #3a4570;
 
-  /* TABATA: red = go hard, teal = recover — glanceable from a distance
+  /* TABATA: accent = go hard, teal = recover — glanceable from a distance
      without reading the phase label. */
   --tabata-rest: #2f7d8f;
 }
@@ -330,7 +330,7 @@ html, body {
 }
 
 /* Slim full-width toggle on top, tall lap buttons below — keeps the
-   red Start/Stop bar as thin as possible so the lap results below
+   accent-colored Start/Stop bar as thin as possible so the lap results below
    have as much room as possible. */
 .controls {
   display: flex;
@@ -609,7 +609,7 @@ html, body {
   z-index: 900;
   box-sizing: border-box;
   border: 4px solid var(--accent);
-  background: rgba(209, 39, 47, 0.05);
+  background: rgba(61, 139, 133, 0.05);
   cursor: not-allowed;
 }
 
