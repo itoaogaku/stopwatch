@@ -230,6 +230,36 @@ let nextStopwatchNumber = 1;
 let nextParentNumber = 1; // letter naming counted only among parents, so children in between never skip a letter
 let firstStopwatchId = null; // only this stopwatch shows the "新規複製" button
 
+// Rebuilds a family's page dots to match its current card count (none for a
+// lone parent), and wires each dot to swipe its card into view on tap.
+function updateFamilyDots(group) {
+  const track = group.querySelector('.family-track');
+  const dotsContainer = group.querySelector('.family-dots');
+  const cards = Array.from(track.children);
+  dotsContainer.innerHTML = '';
+  if (cards.length <= 1) return;
+  cards.forEach((card, i) => {
+    const dot = document.createElement('button');
+    dot.type = 'button';
+    dot.className = 'family-dot';
+    dot.setAttribute('aria-label', `${i + 1} / ${cards.length}`);
+    dot.addEventListener('click', () => {
+      card.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+    });
+    dotsContainer.appendChild(dot);
+  });
+  syncFamilyDots(group);
+}
+
+// Highlights whichever dot matches the card currently snapped into view.
+function syncFamilyDots(group) {
+  const track = group.querySelector('.family-track');
+  const dots = group.querySelector('.family-dots').children;
+  if (dots.length === 0 || track.clientWidth === 0) return;
+  const index = Math.round(track.scrollLeft / track.clientWidth);
+  Array.from(dots).forEach((dot, i) => dot.classList.toggle('is-active', i === index));
+}
+
 // 1 -> A, 2 -> B, ..., 26 -> Z, 27 -> AA, 28 -> AB, ... (spreadsheet-style).
 function defaultLabelFor(number) {
   let n = number;
@@ -348,10 +378,18 @@ function createStopwatch(seed) {
   if (!group) {
     group = document.createElement('div');
     group.className = 'family-group';
+    const track = document.createElement('div');
+    track.className = 'family-track';
+    const dots = document.createElement('div');
+    dots.className = 'family-dots';
+    track.addEventListener('scroll', () => syncFamilyDots(group));
+    group.appendChild(track);
+    group.appendChild(dots);
     el.stopwatchList.appendChild(group);
     familyGroups.set(rootId, group);
   }
-  group.appendChild(node);
+  group.querySelector('.family-track').appendChild(node);
+  updateFamilyDots(group);
 
   stopwatches.set(id, sw);
   renderRecords(sw);
@@ -405,9 +443,15 @@ function removeStopwatch(sw) {
   }
   sw.dom.root.remove();
   stopwatches.delete(sw.id);
-  if (group && group.children.length === 0) {
-    group.remove();
-    familyGroups.delete(rootId);
+  if (group) {
+    const track = group.querySelector('.family-track');
+    if (track.children.length === 0) {
+      group.remove();
+      familyGroups.delete(rootId);
+    } else {
+      track.scrollTo({ left: 0 });
+      updateFamilyDots(group);
+    }
   }
   updateRemoveButtons();
 }
