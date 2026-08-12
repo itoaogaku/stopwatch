@@ -846,13 +846,25 @@ html, body {
   gap: 14px;
 }
 
+.stretch-header-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .stretch-progress {
-  align-self: flex-end;
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   font-size: 13px;
   font-weight: 700;
   color: var(--text-dim);
+}
+
+#stretchVoiceToggle.is-muted {
+  color: var(--text-dim);
+  opacity: 0.6;
 }
 
 .stretch-display-panel {

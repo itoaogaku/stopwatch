@@ -23,6 +23,7 @@ const el = {
   trainRowTemplate: document.getElementById('trainRowTemplate'),
   crossingCards: document.querySelectorAll('.crossing-card'),
   stretchProgress: document.getElementById('stretchProgress'),
+  stretchVoiceToggle: document.getElementById('stretchVoiceToggle'),
   stretchTimer: document.getElementById('stretchTimer'),
   stretchCurrentGroup: document.getElementById('stretchCurrentGroup'),
   stretchNextGroup: document.getElementById('stretchNextGroup'),
@@ -998,6 +999,34 @@ let stretchRunning = false;
 let stretchElapsedMs = 0; // accumulated time for the current step, while paused/stopped
 let stretchStartEpoch = 0; // epoch when the current running span began
 
+// Reads each step's cue aloud so the manager doesn't have to read it
+// themselves. Unlike the Vibration API, speechSynthesis works on iOS Safari.
+let stretchVoiceEnabled = 'speechSynthesis' in window;
+
+function speakStretchCue(text) {
+  if (!stretchVoiceEnabled || !('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel(); // don't let a fast "次へ" tap queue up overlapping lines
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'ja-JP';
+  window.speechSynthesis.speak(utterance);
+}
+
+function renderStretchVoiceToggle() {
+  el.stretchVoiceToggle.classList.toggle('is-muted', !stretchVoiceEnabled);
+  el.stretchVoiceToggle.textContent = stretchVoiceEnabled ? '🔊 音声' : '🔇 音声';
+}
+
+if (!('speechSynthesis' in window)) {
+  el.stretchVoiceToggle.disabled = true;
+  el.stretchVoiceToggle.title = 'この端末は音声読み上げに対応していません';
+}
+el.stretchVoiceToggle.addEventListener('click', () => {
+  stretchVoiceEnabled = !stretchVoiceEnabled;
+  if (!stretchVoiceEnabled) window.speechSynthesis.cancel();
+  renderStretchVoiceToggle();
+});
+renderStretchVoiceToggle();
+
 function currentStretchElapsedMs() {
   if (!stretchRunning) return stretchElapsedMs;
   return stretchElapsedMs + (Date.now() - stretchStartEpoch);
@@ -1050,6 +1079,7 @@ function startNextStretchStep() {
   stretchElapsedMs = 0;
   stretchStartEpoch = Date.now();
   renderStretchUI();
+  speakStretchCue(STRETCH_STEPS[stretchIndex].speech);
 }
 
 // For interruptions mid-stretch (a car passing on the road, etc.) — freezes
