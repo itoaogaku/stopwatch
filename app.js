@@ -974,7 +974,8 @@ function renderStretchUI() {
   el.stretchNextGroup.textContent = next ? next.group : stretchIndex >= 0 ? 'これで終わりです' : STRETCH_STEPS[0].group;
   el.stretchNextSpeech.textContent = next ? next.speech : stretchIndex >= 0 ? '' : STRETCH_STEPS[0].speech;
   el.stretchProgress.textContent = `${Math.max(stretchIndex + 1, 0)} / ${STRETCH_STEPS.length}`;
-  el.stretchStartBtn.textContent = stretchIndex === -1 ? 'スタート' : '次へ(スタート)';
+  el.stretchStartBtn.disabled = stretchRunning;
+  el.stretchStartBtn.textContent = stretchRunning ? 'ストレッチ中' : stretchIndex === -1 ? 'スタート' : '次へ(スタート)';
   el.stretchPauseBtn.disabled = stretchIndex === -1;
   el.stretchPauseBtn.textContent = stretchRunning ? '一時停止' : '再開';
   updateStretchTimerDisplay();
