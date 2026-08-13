@@ -1049,11 +1049,6 @@ const STRETCH_STEPS = [
 
 const STRETCH_STEP_MS = 30000;
 
-// 2種目目以降でタイマー開始のきっかけとして流す短い合図。各種目本来の
-// セリフ(「〜いきます、よーいはじめ」等、STRETCH_STEPS[].voice)とは別の、
-// 「終わり」と同じ扱いの共通セリフ。
-const STRETCH_START_CUE = 'はじめ';
-
 /* ---------- Reinforcement training menus (補強) ---------- */
 // Same "group / speech / voice" shape as STRETCH_STEPS (see comment above),
 // plus "spec" (the reps/count description shown for reference, e.g. "10回4
@@ -1139,10 +1134,13 @@ let stretchIndex = -1; // -1 = not started yet
 let stretchRunning = false;
 let stretchElapsedMs = 0; // accumulated time for the current step, while paused/stopped
 let stretchStartEpoch = 0; // epoch when the current running span began
-// 1種目目だけは、セリフを読み終えるまでタイマーを始めない。この間は
-// stretchIndex が0でも stretchRunning は false のまま(この専用フラグで
-// 区別する。一時停止と紛らわしくならないよう「一時停止」ボタンも封じる)。
-let stretchAwaitingFirstVoice = false;
+// どの種目も、セリフを読み終えるまでタイマーを始めない(iOS Safariは
+// ボタン操作を伴わない音声合成を仕様上ブロックするため、必ずボタン操作
+// に紐づけて確実にセリフを読み上げ、それが終わってからタイマーを始める
+// 設計にしている)。この間は stretchRunning は false のまま(この専用
+// フラグで区別する。一時停止と紛らわしくならないよう「一時停止」ボタンも
+// 封じる)。
+let stretchAwaitingVoice = false;
 
 // Reads each step's cue aloud (via speechSynthesis or a recording — see
 // below) so the manager doesn't have to read it themselves. Shared between
@@ -1255,9 +1253,8 @@ CATEGORIES.forEach((category) => {
 
 // 読み上げ・再生の「完了」を伝える Promise が、ブラウザ側の不具合で
 // end/error イベントが一切発火しないケースでも永遠に待ち続けないための
-// 保険。2種目目以降の自動先読みアナウンス(handleStretchStepAutoStop)は
-// 「終わり」の読み上げ完了を await してから次のセリフを読むため、ここが
-// 固まると次のセリフが永久に読まれなくなってしまう。
+// 保険。enterStretchStep はセリフの読み上げ完了を待ってからその種目の
+// タイマーを開始するため、ここが固まるとタイマーが永久に始まらなくなる。
 const CUE_SAFETY_TIMEOUT_MS = 8000;
 function withCueSafetyTimeout(executor) {
   return new Promise((resolve) => {
@@ -1632,8 +1629,6 @@ function buildRecordingItems(category) {
   }
   if (category === 'stretch') {
     STRETCH_STEPS.forEach(addStep);
-    if (!byText.has(STRETCH_START_CUE)) byText.set(STRETCH_START_CUE, []);
-    byText.get(STRETCH_START_CUE).push('(共通)2種目目以降・スタートの合図');
   } else {
     Object.values(REINFORCE_MENUS).forEach((steps) => steps.forEach(addStep));
   }
@@ -2086,66 +2081,55 @@ function renderStretchUI() {
   // stepInProgress では無効化しない(戻れない/進めない条件のときだけ無効化)。
   el.stretchPrevBtn.disabled = stretchIndex <= 0;
   el.stretchNextBtn.disabled = STRETCH_STEPS.length === 0;
-  el.stretchPauseBtn.disabled = stretchIndex === -1 || stretchAwaitingFirstVoice;
+  el.stretchPauseBtn.disabled = stretchIndex === -1 || stretchAwaitingVoice;
   el.stretchPauseBtn.textContent = stretchRunning ? '一時停止' : '再開';
   updateStretchTimerDisplay();
 }
 
+// 種目を選び直す共通処理(「次へ」「前に戻る」共通)。iOS Safariはボタン
+// 操作を伴わない(タイマーからの自動)音声合成を仕様上ブロックしており
+// JS側では回避できないため、必ずこの実際のボタン操作に紐づけてセリフを
+// 読み上げ、それが読み終わってから初めてその種目のタイマーを開始する。
+function enterStretchStep(index) {
+  stretchIndex = index;
+  stretchElapsedMs = 0;
+  stretchRunning = false;
+  stretchAwaitingVoice = true;
+  renderStretchUI();
+  announceCue('stretch', STRETCH_STEPS[index].voice).then(() => {
+    // 読み上げを待っている間に別の操作で状態が変わっていたら何もしない。
+    if (stretchIndex !== index || !stretchAwaitingVoice) return;
+    stretchAwaitingVoice = false;
+    stretchRunning = true;
+    stretchStartEpoch = Date.now();
+    renderStretchUI();
+  });
+}
+
 function startNextStretchStep() {
-  const isFirstStep = stretchIndex === -1;
-  stretchIndex += 1;
-  if (stretchIndex >= STRETCH_STEPS.length) {
+  const nextIndex = stretchIndex + 1;
+  if (nextIndex >= STRETCH_STEPS.length) {
     stretchIndex = -1;
     stretchRunning = false;
-    stretchAwaitingFirstVoice = false;
+    stretchAwaitingVoice = false;
     stretchElapsedMs = 0;
     renderStretchUI();
     return;
   }
-  stretchElapsedMs = 0;
-  if (isFirstStep) {
-    // 1種目目だけは、セリフを読み終えてから初めてタイマーを開始する。
-    stretchRunning = false;
-    stretchAwaitingFirstVoice = true;
-    renderStretchUI();
-    const startedIndex = stretchIndex;
-    announceCue('stretch', STRETCH_STEPS[stretchIndex].voice).then(() => {
-      // 読み上げを待っている間に「次に進む」等で状態が変わっていたら何もしない。
-      if (stretchIndex !== startedIndex || !stretchAwaitingFirstVoice) return;
-      stretchAwaitingFirstVoice = false;
-      stretchRunning = true;
-      stretchStartEpoch = Date.now();
-      renderStretchUI();
-    });
-  } else {
-    // 2種目目以降は、この種目の内容は前の種目のタイマーが終わった時点で
-    // 自動で読み上げ済みなので、ここでは短い「はじめ」の合図だけ流し、
-    // タイマーは合図と同時にすぐ始める。
-    stretchRunning = true;
-    stretchStartEpoch = Date.now();
-    renderStretchUI();
-    announceCue('stretch', STRETCH_START_CUE);
-  }
+  enterStretchStep(nextIndex);
 }
 
 // 「前に戻る」: ロック中かどうかに関わらず、直前の種目に戻ってやり直せる。
-// 最初の種目(index 0)より前には戻れない。1種目目特有の「読み終えてから
-// タイマー開始」の扱いはせず、常にセリフとタイマーを同時に始める。
+// 最初の種目(index 0)より前には戻れない。
 function goToPreviousStretchStep() {
   if (stretchIndex <= 0) return;
-  stretchIndex -= 1;
-  stretchRunning = true;
-  stretchAwaitingFirstVoice = false;
-  stretchElapsedMs = 0;
-  stretchStartEpoch = Date.now();
-  renderStretchUI();
-  announceCue('stretch', STRETCH_STEPS[stretchIndex].voice);
+  enterStretchStep(stretchIndex - 1);
 }
 
 // For interruptions mid-stretch (a car passing on the road, etc.) — freezes
 // the current step's elapsed time in place rather than losing it.
 function toggleStretchPause() {
-  if (stretchIndex === -1 || stretchAwaitingFirstVoice) return; // guarded by disabled state too
+  if (stretchIndex === -1 || stretchAwaitingVoice) return; // guarded by disabled state too
   if (stretchRunning) {
     stretchElapsedMs = currentStretchElapsedMs();
     stretchRunning = false;
@@ -2159,21 +2143,9 @@ function toggleStretchPause() {
 function resetStretch() {
   stretchIndex = -1;
   stretchRunning = false;
-  stretchAwaitingFirstVoice = false;
+  stretchAwaitingVoice = false;
   stretchElapsedMs = 0;
   renderStretchUI();
-}
-
-// 種目の30秒タイマーが自動で終わった瞬間の処理。「終わり」を読み上げた
-// あと、次の種目が残っていればその内容(本来のセリフ、末尾の「よーいは
-// じめ」込み)を先読みで自動アナウンスする(タイマーはまだ始めない。実際
-// にタイマーを始めるのは、この後スタートボタンが押されたタイミング)。
-async function handleStretchStepAutoStop() {
-  const completedIndex = stretchIndex;
-  await announceCue('stretch', '終わり');
-  if (stretchIndex !== completedIndex) return; // 待っている間に状態が変わっていたら何もしない
-  const next = STRETCH_STEPS[completedIndex + 1];
-  if (next) await announceCue('stretch', next.voice);
 }
 
 function tickStretch() {
@@ -2183,7 +2155,10 @@ function tickStretch() {
       stretchElapsedMs = STRETCH_STEP_MS;
       stretchRunning = false;
       renderStretchUI();
-      handleStretchStepAutoStop();
+      // ベストエフォート: ボタン操作を伴わないため、iOS Safariでは仕様上
+      // 鳴らないことがある(各種目のセリフ自体は次へボタンを押した時に
+      // 確実に読み上げられるので、そちらで内容は伝わる)。
+      announceCue('stretch', '終わり');
     } else {
       updateStretchTimerDisplay();
     }
