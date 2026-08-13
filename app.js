@@ -1679,29 +1679,26 @@ function createRecordingRow(item) {
       // 共有音声だけ、原因の切り分けができるよう詳しいエラーを表示する
       // (端末保存分と違い、ネットワーク越しの再生でここが失敗しがちなため)。
       // error イベントと play() の reject は同じ失敗で両方発火することがある
-      // ので、二重アラートにならないようフラグで抑制する。実際にサーバーが
-      // 何を返しているか(Content-Type等)をこの端末から直接確認することで、
-      // 何度も推測で直すのではなく実データを見て原因を特定する。
+      // ので、二重アラートにならないようフラグで抑制する。
+      //
+      // 注意: ここで fetch() によるHEADリクエストでヘッダーを確認しようと
+      // したことがあるが、<audio> 要素自体はCORSの制限を受けずに再生できる
+      // 一方、fetch() は別オリジン(Xserver)への読み取りにCORSヘッダーが
+      // 必要なため、無関係な"Load failed"エラーが出てしまい誤診断の原因に
+      // なった。ヘッダーを確認したい場合は、このURLをブラウザで直接開いて
+      // もらう(トップレベルナビゲーションはCORSの対象外)のが正しい方法。
       let alerted = false;
-      const showDiagnostics = async (baseMessage) => {
+      audio.addEventListener('error', () => {
         if (alerted) return;
         alerted = true;
-        let headerInfo = 'サーバーへの問い合わせ自体に失敗しました(オフライン等)';
-        try {
-          const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-          headerInfo = `HTTPステータス: ${res.status}\nContent-Type: ${res.headers.get('content-type') || '(なし)'}\nContent-Length: ${res.headers.get('content-length') || '(なし)'}`;
-        } catch (fetchErr) {
-          headerInfo = `サーバーへの問い合わせ自体に失敗しました: ${fetchErr.message}`;
-        }
-        alert(`${baseMessage}\nURL: ${url}\n\n--- サーバーの実際の応答 ---\n${headerInfo}`);
-      };
-      audio.addEventListener('error', () => {
         const code = audio.error ? audio.error.code : null;
         const codeNames = { 1: 'MEDIA_ERR_ABORTED', 2: 'MEDIA_ERR_NETWORK', 3: 'MEDIA_ERR_DECODE', 4: 'MEDIA_ERR_SRC_NOT_SUPPORTED' };
-        showDiagnostics(`共有音声の再生に失敗しました\nエラーコード: ${code ?? '不明'}(${codeNames[code] || '不明'})`);
+        alert(`共有音声の再生に失敗しました\nURL: ${url}\nエラーコード: ${code ?? '不明'}(${codeNames[code] || '不明'})`);
       });
       audio.play().catch((err) => {
-        showDiagnostics(`共有音声の再生に失敗しました\n${err.name}: ${err.message}`);
+        if (alerted) return;
+        alerted = true;
+        alert(`共有音声の再生に失敗しました\nURL: ${url}\n${err.name}: ${err.message}`);
       });
     }
   });
