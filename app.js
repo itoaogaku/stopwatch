@@ -1457,9 +1457,9 @@ function parseDbKey(key) {
   const firstSep = key.indexOf(DB_KEY_SEP);
   if (firstSep === -1) return { category: 'stretch', setName: DEFAULT_SET_NAME, text: key };
   const category = key.slice(0, firstSep);
-  const rest = key.slice(firstSep + 1);
+  const rest = key.slice(firstSep + DB_KEY_SEP.length);
   const secondSep = rest.indexOf(DB_KEY_SEP);
-  return { category, setName: rest.slice(0, secondSep), text: rest.slice(secondSep + 1) };
+  return { category, setName: rest.slice(0, secondSep), text: rest.slice(secondSep + DB_KEY_SEP.length) };
 }
 
 async function loadAllRecordings() {
