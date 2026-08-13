@@ -1286,18 +1286,35 @@ function speakCue(category, text) {
       finish();
       return;
     }
-    window.speechSynthesis.cancel(); // don't let a fast "次へ" tap queue up overlapping lines
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'ja-JP';
-    const voiceURI = selectedVoiceURIByCategory[category];
-    const voice = window.speechSynthesis.getVoices().find((v) => v.voiceURI === voiceURI);
-    if (voice) utterance.voice = voice;
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-    pendingUtterance = utterance;
-    utterance.addEventListener('end', finish);
-    utterance.addEventListener('error', finish);
-    window.speechSynthesis.speak(utterance);
+    const synth = window.speechSynthesis;
+    synth.cancel(); // don't let a fast "次へ" tap queue up overlapping lines
+
+    // iOS Safari の speechSynthesis はボタン操作を介さず(タイマー等から)
+    // 連続で呼び出すと、cancel() 直後の speak() や、直前の発話からあまり
+    // 間を置かない2回目以降の speak() が何のイベントも出さず無反応に
+    // なることがある(既知の不具合)。cancel() 直後に同期でspeak()せず
+    // 一呼吸置くのと、一定時間内に実際に話し始めなければ resume() を挟んで
+    // もう一度だけ試すことで、これを避ける。
+    const speakNow = () => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ja-JP';
+      const voiceURI = selectedVoiceURIByCategory[category];
+      const voice = synth.getVoices().find((v) => v.voiceURI === voiceURI);
+      if (voice) utterance.voice = voice;
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
+      pendingUtterance = utterance;
+      utterance.addEventListener('end', finish);
+      utterance.addEventListener('error', finish);
+      synth.speak(utterance);
+      setTimeout(() => {
+        if (pendingUtterance === utterance && !synth.speaking && !synth.pending) {
+          synth.resume();
+          synth.speak(utterance);
+        }
+      }, 250);
+    };
+    setTimeout(speakNow, 0);
   });
 }
 
