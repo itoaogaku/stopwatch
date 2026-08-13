@@ -1250,16 +1250,40 @@ CATEGORIES.forEach((category) => {
   if (!select) return;
   select.addEventListener('change', () => {
     selectedVoiceURIByCategory[category] = select.value;
-    announceCue(category, 'これはテストの音声です');
   });
 });
 
-// 読み上げの完了(またはそもそも何も読み上げなかったこと)を Promise で
-// 知らせる。1種目目はこの完了を待ってからタイマーを開始するため。
-function speakCue(category, text) {
+// 読み上げ・再生の「完了」を伝える Promise が、ブラウザ側の不具合で
+// end/error イベントが一切発火しないケースでも永遠に待ち続けないための
+// 保険。2種目目以降の自動先読みアナウンス(handleStretchStepAutoStop)は
+// 「終わり」の読み上げ完了を await してから次のセリフを読むため、ここが
+// 固まると次のセリフが永久に読まれなくなってしまう。
+const CUE_SAFETY_TIMEOUT_MS = 8000;
+function withCueSafetyTimeout(executor) {
   return new Promise((resolve) => {
-    if (!voiceEnabled || !('speechSynthesis' in window)) {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
       resolve();
+    };
+    const timeoutId = setTimeout(finish, CUE_SAFETY_TIMEOUT_MS);
+    executor(() => {
+      clearTimeout(timeoutId);
+      finish();
+    });
+  });
+}
+
+// SpeechSynthesisUtterance を他から参照しないままにしておくと、ブラウザ
+// (特にChrome系)によっては読み上げ中にGCされてしまい、onend/onerrorが
+// 一切発火しないことがある。ここで参照を保持して防ぐ。
+let pendingUtterance = null;
+
+function speakCue(category, text) {
+  return withCueSafetyTimeout((finish) => {
+    if (!voiceEnabled || !('speechSynthesis' in window)) {
+      finish();
       return;
     }
     window.speechSynthesis.cancel(); // don't let a fast "次へ" tap queue up overlapping lines
@@ -1270,8 +1294,9 @@ function speakCue(category, text) {
     if (voice) utterance.voice = voice;
     utterance.rate = 0.95;
     utterance.pitch = 1.0;
-    utterance.addEventListener('end', () => resolve());
-    utterance.addEventListener('error', () => resolve());
+    pendingUtterance = utterance;
+    utterance.addEventListener('end', finish);
+    utterance.addEventListener('error', finish);
     window.speechSynthesis.speak(utterance);
   });
 }
@@ -1920,9 +1945,9 @@ async function toggleRecording(category, setName, id, btn, refreshRowStatus) {
 // 呼び出し側から見れば、録音再生・共有音声再生・音声合成のどれが実際に
 // 使われたかに関わらず「読み終わった」タイミングが await で分かる。
 function announceCue(category, text) {
-  return new Promise((resolve) => {
+  return withCueSafetyTimeout((finish) => {
     if (!voiceEnabled) {
-      resolve();
+      finish();
       return;
     }
     stopAnyPlayback();
@@ -1934,9 +1959,9 @@ function announceCue(category, text) {
       if (blob) {
         const audio = new Audio(URL.createObjectURL(blob));
         currentPlaybackAudio = audio;
-        audio.addEventListener('ended', () => resolve());
-        audio.addEventListener('error', () => resolve());
-        audio.play().catch(() => resolve());
+        audio.addEventListener('ended', finish);
+        audio.addEventListener('error', finish);
+        audio.play().catch(finish);
         return;
       }
       const url = nestedGet(sharedRecordingsMap, key, text);
@@ -1950,15 +1975,15 @@ function announceCue(category, text) {
         const fallbackToSpeech = () => {
           if (fellBack) return;
           fellBack = true;
-          speakCue(category, text).then(resolve);
+          speakCue(category, text).then(finish);
         };
-        audio.addEventListener('ended', () => resolve());
+        audio.addEventListener('ended', finish);
         audio.addEventListener('error', fallbackToSpeech);
         audio.play().catch(fallbackToSpeech);
         return;
       }
     }
-    speakCue(category, text).then(resolve);
+    speakCue(category, text).then(finish);
   });
 }
 
