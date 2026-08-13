@@ -1080,13 +1080,8 @@ html, body {
   padding: 8px;
 }
 #recordingSetNewBtn,
-#recordingSetDeleteBtn {
-  flex: 0 0 auto;
-}
-
-.recording-set-progress {
-  font-size: 12px;
-  color: var(--text-dim);
+#recordingSetDeleteBtn,
+#recordingSetShareBtn {
   flex: 0 0 auto;
 }
 

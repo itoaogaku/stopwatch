@@ -40,7 +40,7 @@ const el = {
   recordingSetSelect: document.getElementById('recordingSetSelect'),
   recordingSetNewBtn: document.getElementById('recordingSetNewBtn'),
   recordingSetDeleteBtn: document.getElementById('recordingSetDeleteBtn'),
-  recordingSetProgress: document.getElementById('recordingSetProgress'),
+  recordingSetShareBtn: document.getElementById('recordingSetShareBtn'),
   stretchTimer: document.getElementById('stretchTimer'),
   stretchCurrentGroup: document.getElementById('stretchCurrentGroup'),
   stretchNextGroup: document.getElementById('stretchNextGroup'),
@@ -1158,7 +1158,7 @@ const selectedVoiceURIByCategory = { stretch: null, reinforce: null };
 // falling back to the team's shared copy) instead of speechSynthesis. The
 // value format is "recorded:<set name>". Sets are also scoped per category
 // for the same reason the voice choice is.
-const DEFAULT_SET_NAME = '個人利用音声'; // pre-existing recordings from before sets existed; local-only, never shared
+const DEFAULT_SET_NAME = '個人利用音声'; // pre-existing recordings from before sets existed; always present, cannot be deleted/renamed
 const RECORDED_VOICE_PREFIX = 'recorded:';
 const knownSetsByCategory = {
   stretch: new Set([DEFAULT_SET_NAME]),
@@ -1579,67 +1579,38 @@ function buildRecordingItems(category) {
   return Array.from(byText.entries()).map(([text, groupNames]) => ({ id: text, text, groupNames }));
 }
 
-// 名前付きセットは、一覧の全項目が録音済みになるまでチーム共有サーバー
-// にはアップロードしない(録音途中のセットが他の端末から見えてしまうこ
-// とを防ぐため)。「個人利用音声」セットはそもそも対象外(常に端末のみ)。
-const setUploadInFlight = new Set(); // mapKey(category, setName) 文字列。二重アップロード防止用。
-
-function isSetComplete(category, setName) {
-  const key = mapKey(category, setName);
-  return buildRecordingItems(category).every((item) => nestedHas(recordingsMap, key, item.id));
-}
-
-async function maybeShareCompleteSet(category, setName) {
-  const key = mapKey(category, setName);
-  if (!isSetComplete(category, setName) || setUploadInFlight.has(key)) {
-    refreshRecordingSetProgress();
-    return;
-  }
-  setUploadInFlight.add(key);
-  refreshRecordingSetProgress();
-  try {
-    const items = buildRecordingItems(category);
-    let allOk = true;
-    for (const item of items) {
-      const blob = nestedGet(recordingsMap, key, item.id);
-      const ok = await uploadRecordingToServer(category, setName, item.id, blob);
-      if (!ok) allOk = false;
-    }
-    if (!allOk) {
-      alert(
-        'セット全体のチーム共有アップロードに一部失敗しました(この端末には全て保存されています)。通信状況を確認のうえ、いずれかの項目をもう一度録音すると再試行されます。'
-      );
-    }
-  } finally {
-    setUploadInFlight.delete(key);
-    if (activeRecordingCategory === category) buildAllRecordingRows();
-    refreshRecordingSetProgress();
-  }
-}
-
-function refreshRecordingSetProgress() {
-  const progressEl = el.recordingSetProgress;
-  if (!progressEl) return;
+// 録音は常にこの端末に保存されるだけで、自動でアップロードはしない。
+// チーム共有は、ユーザーが「☁️ チームに共有」ボタンで選んだセットを明示的
+// にアップロードした時だけ行う(その時点で端末に録音済みの分だけをまとめ
+// て送る。全項目が揃っている必要はない)。
+async function shareActiveSetToServer() {
   const category = activeRecordingCategory;
   const setName = activeRecordingSetIdByCategory[category];
-  if (setName === DEFAULT_SET_NAME) {
-    progressEl.textContent = 'この端末にのみ保存され、チームには共有されません。';
+  const key = mapKey(category, setName);
+  const items = buildRecordingItems(category).filter((item) => nestedHas(recordingsMap, key, item.id));
+  if (items.length === 0) {
+    alert('このセットにはまだ録音がありません。');
     return;
   }
-  const key = mapKey(category, setName);
-  const items = buildRecordingItems(category);
-  const recordedCount = items.filter((item) => nestedHas(recordingsMap, key, item.id)).length;
-  const total = items.length;
-  if (setUploadInFlight.has(key)) {
-    progressEl.textContent = `☁️ セット全体をチームに共有中…(${recordedCount} / ${total})`;
-  } else if (recordedCount < total) {
-    progressEl.textContent = `録音済み ${recordedCount} / ${total}(全て録音し終えるとチームに自動で共有されます)`;
-  } else {
-    const allShared = items.every((item) => nestedHas(sharedRecordingsMap, key, item.id));
-    progressEl.textContent = allShared
-      ? '✅ 全て録音済み・チーム共有済みです'
-      : '全て録音済みです(共有アップロードに失敗しています。いずれかの項目を録音し直すと再試行されます)';
+  if (!confirm(`「${setName}」セット(録音済み ${items.length} 件)をチームに共有します。よろしいですか?`)) return;
+
+  el.recordingSetShareBtn.disabled = true;
+  const originalText = el.recordingSetShareBtn.textContent;
+  el.recordingSetShareBtn.textContent = '☁️ 共有中…';
+  let allOk = true;
+  for (const item of items) {
+    const blob = nestedGet(recordingsMap, key, item.id);
+    const ok = await uploadRecordingToServer(category, setName, item.id, blob);
+    if (!ok) allOk = false;
   }
+  el.recordingSetShareBtn.disabled = false;
+  el.recordingSetShareBtn.textContent = originalText;
+  buildAllRecordingRows();
+  alert(
+    allOk
+      ? `「${setName}」セットをチームに共有しました(${items.length} 件)。`
+      : '一部の録音でチーム共有アップロードに失敗しました。通信状況を確認して、もう一度お試しください。'
+  );
 }
 
 function stopAnyPlayback() {
@@ -1674,11 +1645,17 @@ el.recordingSetSelect.addEventListener('change', () => {
   buildAllRecordingRows();
 });
 
+const MAX_RECORDING_SETS_PER_CATEGORY = 3; // 個人利用音声セットは1タブにつき最大3つまで
+
 el.recordingSetNewBtn.addEventListener('click', () => {
+  const category = activeRecordingCategory;
+  if (knownSetsByCategory[category].size >= MAX_RECORDING_SETS_PER_CATEGORY) {
+    alert(`セットは1つのタブにつき最大${MAX_RECORDING_SETS_PER_CATEGORY}つまでです。新しく作るには、不要なセットを「🗑 セットを削除」で削除してください。`);
+    return;
+  }
   const input = prompt('新しいセットの名前を入力してください(例:田中コーチ)');
   const name = input ? input.trim() : '';
   if (!name) return;
-  const category = activeRecordingCategory;
   knownSetsByCategory[category].add(name);
   activeRecordingSetIdByCategory[category] = name;
   populateRecordingSetSelect();
@@ -1707,6 +1684,8 @@ el.recordingSetDeleteBtn.addEventListener('click', async () => {
   buildAllRecordingRows();
 });
 
+el.recordingSetShareBtn.addEventListener('click', shareActiveSetToServer);
+
 function createRecordingRow(item) {
   const node = el.recordingRowTemplate.content.firstElementChild.cloneNode(true);
   const groupEl = node.querySelector('.recording-row-group');
@@ -1732,11 +1711,10 @@ function createRecordingRow(item) {
   }
   function refreshRowStatus() {
     const key = currentKey();
-    const isDefaultSet = activeRecordingSetIdByCategory[activeRecordingCategory] === DEFAULT_SET_NAME;
     const hasLocal = nestedHas(recordingsMap, key, item.id);
     const hasShared = nestedHas(sharedRecordingsMap, key, item.id);
     node.classList.toggle('is-recorded', hasLocal || hasShared);
-    statusEl.textContent = hasShared ? 'チーム共有済み' : hasLocal ? (isDefaultSet ? '端末に保存済み(共有なし)' : '端末のみ(未共有)') : '未録音';
+    statusEl.textContent = hasShared ? 'チーム共有済み' : hasLocal ? '端末のみ(未共有)' : '未録音';
     playBtn.disabled = !(hasLocal || hasShared);
     deleteBtn.disabled = !(hasLocal || hasShared);
   }
@@ -1791,12 +1769,11 @@ function createRecordingRow(item) {
     const category = activeRecordingCategory;
     const setName = activeRecordingSetIdByCategory[category];
     const key = mapKey(category, setName);
-    const hadShared = setName !== DEFAULT_SET_NAME && nestedHas(sharedRecordingsMap, key, item.id);
+    const hadShared = nestedHas(sharedRecordingsMap, key, item.id);
     nestedDelete(recordingsMap, key, item.id);
     await deleteRecordingFromDB(category, setName, item.id);
     if (hadShared) await deleteRecordingFromServer(category, setName, item.id);
     refreshRowStatus();
-    refreshRecordingSetProgress();
   });
 
   return node;
@@ -1807,7 +1784,6 @@ function buildAllRecordingRows() {
   buildRecordingItems(activeRecordingCategory).forEach((item) => {
     el.stretchRecordingsList.appendChild(createRecordingRow(item));
   });
-  refreshRecordingSetProgress();
 }
 
 async function toggleRecording(category, setName, id, btn, refreshRowStatus) {
@@ -1841,14 +1817,6 @@ async function toggleRecording(category, setName, id, btn, refreshRowStatus) {
       nestedSet(recordingsMap, mapKey(category, setName), id, blob);
       refreshRowStatus();
       await saveRecordingToDB(category, setName, id, blob);
-      refreshRecordingSetProgress();
-
-      // 個人利用音声は端末のみに保存し、チーム共有はしない仕様。名前付き
-      // セットは、一覧の全項目を録音し終えるまでアップロードせず待つ
-      // (録音途中のセットが他の端末から見えてしまうのを防ぐため)。
-      if (setName !== DEFAULT_SET_NAME) {
-        await maybeShareCompleteSet(category, setName);
-      }
     }
   });
 
