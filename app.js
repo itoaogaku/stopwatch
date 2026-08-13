@@ -1049,6 +1049,11 @@ const STRETCH_STEPS = [
 
 const STRETCH_STEP_MS = 30000;
 
+// 2種目目以降でタイマー開始のきっかけとして流す短い合図。各種目本来の
+// セリフ(「〜いきます、よーいはじめ」等、STRETCH_STEPS[].voice)とは別の、
+// 「終わり」と同じ扱いの共通セリフ。
+const STRETCH_START_CUE = 'はじめ';
+
 /* ---------- Reinforcement training menus (補強) ---------- */
 // Same "group / speech / voice" shape as STRETCH_STEPS (see comment above),
 // plus "spec" (the reps/count description shown for reference, e.g. "10回4
@@ -1134,6 +1139,10 @@ let stretchIndex = -1; // -1 = not started yet
 let stretchRunning = false;
 let stretchElapsedMs = 0; // accumulated time for the current step, while paused/stopped
 let stretchStartEpoch = 0; // epoch when the current running span began
+// 1種目目だけは、セリフを読み終えるまでタイマーを始めない。この間は
+// stretchIndex が0でも stretchRunning は false のまま(この専用フラグで
+// 区別する。一時停止と紛らわしくならないよう「一時停止」ボタンも封じる)。
+let stretchAwaitingFirstVoice = false;
 
 // Reads each step's cue aloud (via speechSynthesis or a recording — see
 // below) so the manager doesn't have to read it themselves. Shared between
@@ -1245,17 +1254,26 @@ CATEGORIES.forEach((category) => {
   });
 });
 
+// 読み上げの完了(またはそもそも何も読み上げなかったこと)を Promise で
+// 知らせる。1種目目はこの完了を待ってからタイマーを開始するため。
 function speakCue(category, text) {
-  if (!voiceEnabled || !('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel(); // don't let a fast "次へ" tap queue up overlapping lines
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'ja-JP';
-  const voiceURI = selectedVoiceURIByCategory[category];
-  const voice = window.speechSynthesis.getVoices().find((v) => v.voiceURI === voiceURI);
-  if (voice) utterance.voice = voice;
-  utterance.rate = 0.95;
-  utterance.pitch = 1.0;
-  window.speechSynthesis.speak(utterance);
+  return new Promise((resolve) => {
+    if (!voiceEnabled || !('speechSynthesis' in window)) {
+      resolve();
+      return;
+    }
+    window.speechSynthesis.cancel(); // don't let a fast "次へ" tap queue up overlapping lines
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ja-JP';
+    const voiceURI = selectedVoiceURIByCategory[category];
+    const voice = window.speechSynthesis.getVoices().find((v) => v.voiceURI === voiceURI);
+    if (voice) utterance.voice = voice;
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    utterance.addEventListener('end', () => resolve());
+    utterance.addEventListener('error', () => resolve());
+    window.speechSynthesis.speak(utterance);
+  });
 }
 
 function renderVoiceToggle() {
@@ -1572,6 +1590,8 @@ function buildRecordingItems(category) {
   }
   if (category === 'stretch') {
     STRETCH_STEPS.forEach(addStep);
+    if (!byText.has(STRETCH_START_CUE)) byText.set(STRETCH_START_CUE, []);
+    byText.get(STRETCH_START_CUE).push('(共通)2種目目以降・スタートの合図');
   } else {
     Object.values(REINFORCE_MENUS).forEach((steps) => steps.forEach(addStep));
   }
@@ -1896,39 +1916,50 @@ async function toggleRecording(category, setName, id, btn, refreshRowStatus) {
 // says e.g. "反対" shares one recording within a set automatically — but
 // ストレッチ and 補強 never share recordings with each other, even for the
 // exact same word (see the module comment above).
+// 再生の完了(またはそもそも何も再生しなかったこと)を Promise で知らせる。
+// 呼び出し側から見れば、録音再生・共有音声再生・音声合成のどれが実際に
+// 使われたかに関わらず「読み終わった」タイミングが await で分かる。
 function announceCue(category, text) {
-  if (!voiceEnabled) return;
-  stopAnyPlayback();
-  const selectedVoiceURI = selectedVoiceURIByCategory[category];
-  if (isRecordedVoiceValue(selectedVoiceURI)) {
-    const setName = setNameFromVoiceValue(selectedVoiceURI);
-    const key = mapKey(category, setName);
-    const blob = nestedGet(recordingsMap, key, text);
-    if (blob) {
-      const audio = new Audio(URL.createObjectURL(blob));
-      currentPlaybackAudio = audio;
-      audio.play();
+  return new Promise((resolve) => {
+    if (!voiceEnabled) {
+      resolve();
       return;
     }
-    const url = nestedGet(sharedRecordingsMap, key, text);
-    if (url) {
-      const audio = new Audio(url);
-      currentPlaybackAudio = audio;
-      // 共有音声の再生に失敗しても(権限・回線・非対応形式など)ワークアウト中に
-      // 無音のまま止まらないよう、音声合成に自動でフォールバックする。二重に
-      // 読み上げないよう、フォールバック済みかどうかをフラグで管理する。
-      let fellBack = false;
-      const fallbackToSpeech = () => {
-        if (fellBack) return;
-        fellBack = true;
-        speakCue(category, text);
-      };
-      audio.addEventListener('error', fallbackToSpeech);
-      audio.play().catch(fallbackToSpeech);
-      return;
+    stopAnyPlayback();
+    const selectedVoiceURI = selectedVoiceURIByCategory[category];
+    if (isRecordedVoiceValue(selectedVoiceURI)) {
+      const setName = setNameFromVoiceValue(selectedVoiceURI);
+      const key = mapKey(category, setName);
+      const blob = nestedGet(recordingsMap, key, text);
+      if (blob) {
+        const audio = new Audio(URL.createObjectURL(blob));
+        currentPlaybackAudio = audio;
+        audio.addEventListener('ended', () => resolve());
+        audio.addEventListener('error', () => resolve());
+        audio.play().catch(() => resolve());
+        return;
+      }
+      const url = nestedGet(sharedRecordingsMap, key, text);
+      if (url) {
+        const audio = new Audio(url);
+        currentPlaybackAudio = audio;
+        // 共有音声の再生に失敗しても(権限・回線・非対応形式など)ワークアウト中に
+        // 無音のまま止まらないよう、音声合成に自動でフォールバックする。二重に
+        // 読み上げないよう、フォールバック済みかどうかをフラグで管理する。
+        let fellBack = false;
+        const fallbackToSpeech = () => {
+          if (fellBack) return;
+          fellBack = true;
+          speakCue(category, text).then(resolve);
+        };
+        audio.addEventListener('ended', () => resolve());
+        audio.addEventListener('error', fallbackToSpeech);
+        audio.play().catch(fallbackToSpeech);
+        return;
+      }
     }
-  }
-  speakCue(category, text);
+    speakCue(category, text).then(resolve);
+  });
 }
 
 populateRecordingSetSelect();
@@ -2013,33 +2044,56 @@ function renderStretchUI() {
   // stepInProgress では無効化しない(戻れない/進めない条件のときだけ無効化)。
   el.stretchPrevBtn.disabled = stretchIndex <= 0;
   el.stretchNextBtn.disabled = STRETCH_STEPS.length === 0;
-  el.stretchPauseBtn.disabled = stretchIndex === -1;
+  el.stretchPauseBtn.disabled = stretchIndex === -1 || stretchAwaitingFirstVoice;
   el.stretchPauseBtn.textContent = stretchRunning ? '一時停止' : '再開';
   updateStretchTimerDisplay();
 }
 
 function startNextStretchStep() {
+  const isFirstStep = stretchIndex === -1;
   stretchIndex += 1;
   if (stretchIndex >= STRETCH_STEPS.length) {
     stretchIndex = -1;
     stretchRunning = false;
+    stretchAwaitingFirstVoice = false;
     stretchElapsedMs = 0;
     renderStretchUI();
     return;
   }
-  stretchRunning = true;
   stretchElapsedMs = 0;
-  stretchStartEpoch = Date.now();
-  renderStretchUI();
-  announceCue('stretch', STRETCH_STEPS[stretchIndex].voice);
+  if (isFirstStep) {
+    // 1種目目だけは、セリフを読み終えてから初めてタイマーを開始する。
+    stretchRunning = false;
+    stretchAwaitingFirstVoice = true;
+    renderStretchUI();
+    const startedIndex = stretchIndex;
+    announceCue('stretch', STRETCH_STEPS[stretchIndex].voice).then(() => {
+      // 読み上げを待っている間に「次に進む」等で状態が変わっていたら何もしない。
+      if (stretchIndex !== startedIndex || !stretchAwaitingFirstVoice) return;
+      stretchAwaitingFirstVoice = false;
+      stretchRunning = true;
+      stretchStartEpoch = Date.now();
+      renderStretchUI();
+    });
+  } else {
+    // 2種目目以降は、この種目の内容は前の種目のタイマーが終わった時点で
+    // 自動で読み上げ済みなので、ここでは短い「はじめ」の合図だけ流し、
+    // タイマーは合図と同時にすぐ始める。
+    stretchRunning = true;
+    stretchStartEpoch = Date.now();
+    renderStretchUI();
+    announceCue('stretch', STRETCH_START_CUE);
+  }
 }
 
 // 「前に戻る」: ロック中かどうかに関わらず、直前の種目に戻ってやり直せる。
-// 最初の種目(index 0)より前には戻れない。
+// 最初の種目(index 0)より前には戻れない。1種目目特有の「読み終えてから
+// タイマー開始」の扱いはせず、常にセリフとタイマーを同時に始める。
 function goToPreviousStretchStep() {
   if (stretchIndex <= 0) return;
   stretchIndex -= 1;
   stretchRunning = true;
+  stretchAwaitingFirstVoice = false;
   stretchElapsedMs = 0;
   stretchStartEpoch = Date.now();
   renderStretchUI();
@@ -2049,7 +2103,7 @@ function goToPreviousStretchStep() {
 // For interruptions mid-stretch (a car passing on the road, etc.) — freezes
 // the current step's elapsed time in place rather than losing it.
 function toggleStretchPause() {
-  if (stretchIndex === -1) return;
+  if (stretchIndex === -1 || stretchAwaitingFirstVoice) return; // guarded by disabled state too
   if (stretchRunning) {
     stretchElapsedMs = currentStretchElapsedMs();
     stretchRunning = false;
@@ -2063,8 +2117,21 @@ function toggleStretchPause() {
 function resetStretch() {
   stretchIndex = -1;
   stretchRunning = false;
+  stretchAwaitingFirstVoice = false;
   stretchElapsedMs = 0;
   renderStretchUI();
+}
+
+// 種目の30秒タイマーが自動で終わった瞬間の処理。「終わり」を読み上げた
+// あと、次の種目が残っていればその内容(本来のセリフ、末尾の「よーいは
+// じめ」込み)を先読みで自動アナウンスする(タイマーはまだ始めない。実際
+// にタイマーを始めるのは、この後スタートボタンが押されたタイミング)。
+async function handleStretchStepAutoStop() {
+  const completedIndex = stretchIndex;
+  await announceCue('stretch', '終わり');
+  if (stretchIndex !== completedIndex) return; // 待っている間に状態が変わっていたら何もしない
+  const next = STRETCH_STEPS[completedIndex + 1];
+  if (next) await announceCue('stretch', next.voice);
 }
 
 function tickStretch() {
@@ -2074,7 +2141,7 @@ function tickStretch() {
       stretchElapsedMs = STRETCH_STEP_MS;
       stretchRunning = false;
       renderStretchUI();
-      announceCue('stretch', '終わり');
+      handleStretchStepAutoStop();
     } else {
       updateStretchTimerDisplay();
     }
