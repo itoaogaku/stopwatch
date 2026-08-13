@@ -1324,7 +1324,7 @@ function promptForAudioToken() {
 
 async function loadSharedRecordings() {
   try {
-    const res = await fetch(SHARED_AUDIO_API_URL);
+    const res = await fetch(SHARED_AUDIO_API_URL, { cache: 'no-store' });
     if (!res.ok) return;
     const data = await res.json();
     sharedRecordingsMap.clear();
