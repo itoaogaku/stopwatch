@@ -39,6 +39,7 @@ const el = {
   recordingRowTemplate: document.getElementById('recordingRowTemplate'),
   recordingSetSelect: document.getElementById('recordingSetSelect'),
   recordingSetNewBtn: document.getElementById('recordingSetNewBtn'),
+  recordingSetRenameBtn: document.getElementById('recordingSetRenameBtn'),
   recordingSetDeleteBtn: document.getElementById('recordingSetDeleteBtn'),
   recordingSetShareBtn: document.getElementById('recordingSetShareBtn'),
   stretchTimer: document.getElementById('stretchTimer'),
@@ -1624,6 +1625,15 @@ function stopAnyPlayback() {
 // set picker (independent of the "声を選ぶ" playback pickers — this one just
 // controls which set the modal is currently viewing/recording into, via
 // activeRecordingSetIdByCategory).
+// 「個人利用音声」は録音機能導入前からの互換のため常に存在させる固定枠
+// なので、削除・名前変更のどちらもできない(削除・変更ボタンをここで
+// まとめて無効化する)。
+function updateRecordingSetActionButtons() {
+  const isDefault = activeRecordingSetIdByCategory[activeRecordingCategory] === DEFAULT_SET_NAME;
+  el.recordingSetDeleteBtn.disabled = isDefault;
+  el.recordingSetRenameBtn.disabled = isDefault;
+}
+
 function populateRecordingSetSelect() {
   const category = activeRecordingCategory;
   const knownSets = knownSetsByCategory[category];
@@ -1636,12 +1646,12 @@ function populateRecordingSetSelect() {
   });
   if (!knownSets.has(activeRecordingSetIdByCategory[category])) activeRecordingSetIdByCategory[category] = DEFAULT_SET_NAME;
   el.recordingSetSelect.value = activeRecordingSetIdByCategory[category];
-  el.recordingSetDeleteBtn.disabled = activeRecordingSetIdByCategory[category] === DEFAULT_SET_NAME;
+  updateRecordingSetActionButtons();
 }
 
 el.recordingSetSelect.addEventListener('change', () => {
   activeRecordingSetIdByCategory[activeRecordingCategory] = el.recordingSetSelect.value;
-  el.recordingSetDeleteBtn.disabled = activeRecordingSetIdByCategory[activeRecordingCategory] === DEFAULT_SET_NAME;
+  updateRecordingSetActionButtons();
   buildAllRecordingRows();
 });
 
@@ -1682,6 +1692,57 @@ el.recordingSetDeleteBtn.addEventListener('click', async () => {
   populateRecordingSetSelect();
   populateVoiceSelect(category);
   buildAllRecordingRows();
+});
+
+el.recordingSetRenameBtn.addEventListener('click', async () => {
+  const category = activeRecordingCategory;
+  const oldName = activeRecordingSetIdByCategory[category];
+  if (oldName === DEFAULT_SET_NAME) return; // guarded by disabled state too
+
+  const input = prompt('セットの新しい名前を入力してください', oldName);
+  const newName = input ? input.trim() : '';
+  if (!newName || newName === oldName) return;
+  if (newName === DEFAULT_SET_NAME || knownSetsByCategory[category].has(newName)) {
+    alert('その名前はすでに使われています。別の名前を入力してください。');
+    return;
+  }
+
+  const oldKey = mapKey(category, oldName);
+  const newKey = mapKey(category, newName);
+
+  const oldRecordings = recordingsMap.get(oldKey);
+  if (oldRecordings) {
+    for (const [text, blob] of oldRecordings) {
+      await saveRecordingToDB(category, newName, text, blob);
+      await deleteRecordingFromDB(category, oldName, text);
+    }
+    recordingsMap.set(newKey, oldRecordings);
+    recordingsMap.delete(oldKey);
+  }
+
+  // 既にチーム共有していた分は、名前変更後もサーバー上は旧名のまま残って
+  // しまうため一旦削除する(必要なら新しい名前で改めて「☁️ チームに共有」
+  // を押せば再アップロードできる)。
+  const hadShared = sharedRecordingsMap.has(oldKey);
+  if (hadShared) {
+    await deleteSetFromServer(category, oldName);
+    sharedRecordingsMap.delete(oldKey);
+  }
+
+  knownSetsByCategory[category].delete(oldName);
+  knownSetsByCategory[category].add(newName);
+  if (selectedVoiceURIByCategory[category] === recordedVoiceValue(oldName)) {
+    selectedVoiceURIByCategory[category] = recordedVoiceValue(newName);
+  }
+  activeRecordingSetIdByCategory[category] = newName;
+
+  populateRecordingSetSelect();
+  populateVoiceSelect(category);
+  buildAllRecordingRows();
+
+  if (hadShared) {
+    alert(`セット名を「${newName}」に変更しました。チーム共有していた分はサーバーから削除したので、必要であれば改めて「☁️ チームに共有」を押してください。`);
+  }
 });
 
 el.recordingSetShareBtn.addEventListener('click', shareActiveSetToServer);

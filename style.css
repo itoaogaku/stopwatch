@@ -1080,6 +1080,7 @@ html, body {
   padding: 8px;
 }
 #recordingSetNewBtn,
+#recordingSetRenameBtn,
 #recordingSetDeleteBtn,
 #recordingSetShareBtn {
   flex: 0 0 auto;
