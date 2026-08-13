@@ -8,6 +8,11 @@ const el = {
   lockToggleBtn: document.getElementById('lockToggleBtn'),
   lockOverlay: document.getElementById('lockOverlay'),
   tabButtons: document.querySelectorAll('.tab-btn'),
+  tabMenuToggle: document.getElementById('tabMenuToggle'),
+  appTopbarTitle: document.getElementById('appTopbarTitle'),
+  tabDrawer: document.getElementById('tabDrawer'),
+  tabDrawerOverlay: document.getElementById('tabDrawerOverlay'),
+  tabDrawerCloseBtn: document.getElementById('tabDrawerCloseBtn'),
   tabPanels: {
     timer: document.getElementById('timerTab'),
     pace: document.getElementById('paceTab'),
@@ -68,12 +73,26 @@ const el = {
 };
 
 /* ---------- Tabs ---------- */
+function setTabDrawerOpen(open) {
+  el.tabDrawer.classList.toggle('is-open', open);
+  el.tabDrawerOverlay.classList.toggle('is-open', open);
+  document.body.style.overflow = open ? 'hidden' : '';
+}
+el.tabMenuToggle.addEventListener('click', () => setTabDrawerOpen(true));
+el.tabDrawerCloseBtn.addEventListener('click', () => setTabDrawerOpen(false));
+el.tabDrawerOverlay.addEventListener('click', () => setTabDrawerOpen(false));
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') setTabDrawerOpen(false);
+});
+
 el.tabButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
     el.tabButtons.forEach((b) => b.classList.toggle('is-active', b === btn));
     Object.entries(el.tabPanels).forEach(([name, panel]) => {
       panel.hidden = name !== btn.dataset.tab;
     });
+    el.appTopbarTitle.textContent = btn.textContent;
+    setTabDrawerOpen(false);
   });
 });
 
