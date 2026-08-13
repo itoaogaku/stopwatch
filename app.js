@@ -1649,10 +1649,11 @@ function createRecordingRow(item) {
   }
   function refreshRowStatus() {
     const key = currentKey();
+    const isDefaultSet = activeRecordingSetIdByCategory[activeRecordingCategory] === DEFAULT_SET_NAME;
     const hasLocal = nestedHas(recordingsMap, key, item.id);
     const hasShared = nestedHas(sharedRecordingsMap, key, item.id);
     node.classList.toggle('is-recorded', hasLocal || hasShared);
-    statusEl.textContent = hasShared ? 'チーム共有済み' : hasLocal ? '端末のみ(未共有)' : '未録音';
+    statusEl.textContent = hasShared ? 'チーム共有済み' : hasLocal ? (isDefaultSet ? '端末に保存済み(共有なし)' : '端末のみ(未共有)') : '未録音';
     playBtn.disabled = !(hasLocal || hasShared);
     deleteBtn.disabled = !(hasLocal || hasShared);
   }
@@ -1707,7 +1708,7 @@ function createRecordingRow(item) {
     const category = activeRecordingCategory;
     const setName = activeRecordingSetIdByCategory[category];
     const key = mapKey(category, setName);
-    const hadShared = nestedHas(sharedRecordingsMap, key, item.id);
+    const hadShared = setName !== DEFAULT_SET_NAME && nestedHas(sharedRecordingsMap, key, item.id);
     nestedDelete(recordingsMap, key, item.id);
     await deleteRecordingFromDB(category, setName, item.id);
     if (hadShared) await deleteRecordingFromServer(category, setName, item.id);
@@ -1756,14 +1757,17 @@ async function toggleRecording(category, setName, id, btn, refreshRowStatus) {
       refreshRowStatus();
       await saveRecordingToDB(category, setName, id, blob);
 
-      btn.disabled = true;
-      btn.textContent = '☁️ 共有中…';
-      const uploaded = await uploadRecordingToServer(category, setName, id, blob);
-      btn.disabled = false;
-      btn.textContent = '🔴 録音';
-      refreshRowStatus();
-      if (!uploaded) {
-        alert('チームへの共有アップロードに失敗しました(この端末には保存されています)。通信状況を確認して、もう一度「🔴 録音」を押すと再試行できます。');
+      // デフォルト(これまでの録音)は端末のみに保存し、チーム共有はしない仕様。
+      if (setName !== DEFAULT_SET_NAME) {
+        btn.disabled = true;
+        btn.textContent = '☁️ 共有中…';
+        const uploaded = await uploadRecordingToServer(category, setName, id, blob);
+        btn.disabled = false;
+        btn.textContent = '🔴 録音';
+        refreshRowStatus();
+        if (!uploaded) {
+          alert('チームへの共有アップロードに失敗しました(この端末には保存されています)。通信状況を確認して、もう一度「🔴 録音」を押すと再試行できます。');
+        }
       }
     }
   });
