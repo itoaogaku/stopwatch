@@ -40,6 +40,8 @@ const el = {
   stretchNextGroup: document.getElementById('stretchNextGroup'),
   stretchNextSpeech: document.getElementById('stretchNextSpeech'),
   stretchStartBtn: document.getElementById('stretchStartBtn'),
+  stretchPrevBtn: document.getElementById('stretchPrevBtn'),
+  stretchNextBtn: document.getElementById('stretchNextBtn'),
   stretchPauseBtn: document.getElementById('stretchPauseBtn'),
   stretchResetBtn: document.getElementById('stretchResetBtn'),
   reinforceProgress: document.getElementById('reinforceProgress'),
@@ -53,6 +55,8 @@ const el = {
   reinforceNextGroup: document.getElementById('reinforceNextGroup'),
   reinforceNextSpeech: document.getElementById('reinforceNextSpeech'),
   reinforceStartBtn: document.getElementById('reinforceStartBtn'),
+  reinforcePrevBtn: document.getElementById('reinforcePrevBtn'),
+  reinforceNextBtn: document.getElementById('reinforceNextBtn'),
   reinforcePauseBtn: document.getElementById('reinforcePauseBtn'),
   reinforceResetBtn: document.getElementById('reinforceResetBtn'),
   tabataProgress: document.getElementById('tabataProgress'),
@@ -1859,6 +1863,10 @@ function renderStretchUI() {
   const stepInProgress = stretchIndex >= 0 && currentStretchElapsedMs() < STRETCH_STEP_MS;
   el.stretchStartBtn.disabled = stepInProgress;
   el.stretchStartBtn.textContent = stretchIndex === -1 ? 'スタート' : stepInProgress ? 'ストレッチ中' : '次へ(スタート)';
+  // 前に戻る/次に進む はロック中でも押せる手動スキップ用ボタンなので、
+  // stepInProgress では無効化しない(戻れない/進めない条件のときだけ無効化)。
+  el.stretchPrevBtn.disabled = stretchIndex <= 0;
+  el.stretchNextBtn.disabled = STRETCH_STEPS.length === 0;
   el.stretchPauseBtn.disabled = stretchIndex === -1;
   el.stretchPauseBtn.textContent = stretchRunning ? '一時停止' : '再開';
   updateStretchTimerDisplay();
@@ -1873,6 +1881,18 @@ function startNextStretchStep() {
     renderStretchUI();
     return;
   }
+  stretchRunning = true;
+  stretchElapsedMs = 0;
+  stretchStartEpoch = Date.now();
+  renderStretchUI();
+  announceCue('stretch', STRETCH_STEPS[stretchIndex].voice);
+}
+
+// 「前に戻る」: ロック中かどうかに関わらず、直前の種目に戻ってやり直せる。
+// 最初の種目(index 0)より前には戻れない。
+function goToPreviousStretchStep() {
+  if (stretchIndex <= 0) return;
+  stretchIndex -= 1;
   stretchRunning = true;
   stretchElapsedMs = 0;
   stretchStartEpoch = Date.now();
@@ -1917,6 +1937,8 @@ function tickStretch() {
 }
 
 el.stretchStartBtn.addEventListener('click', startNextStretchStep);
+el.stretchPrevBtn.addEventListener('click', goToPreviousStretchStep);
+el.stretchNextBtn.addEventListener('click', startNextStretchStep); // same "advance" action, but usable even while locked
 el.stretchPauseBtn.addEventListener('click', toggleStretchPause);
 el.stretchResetBtn.addEventListener('click', resetStretch);
 
@@ -2003,6 +2025,10 @@ function renderReinforceUI() {
   const stepInProgress = reinforceIndex >= 0 && durationMs !== null && currentReinforceElapsedMs() < durationMs;
   el.reinforceStartBtn.disabled = stepInProgress || steps.length === 0;
   el.reinforceStartBtn.textContent = reinforceIndex === -1 ? 'スタート' : stepInProgress ? '実施中' : '次へ(スタート)';
+  // 前に戻る/次に進む はロック中でも押せる手動スキップ用ボタンなので、
+  // stepInProgress では無効化しない(戻れない/進めない条件のときだけ無効化)。
+  el.reinforcePrevBtn.disabled = reinforceIndex <= 0;
+  el.reinforceNextBtn.disabled = steps.length === 0;
   el.reinforcePauseBtn.disabled = reinforceIndex === -1;
   el.reinforcePauseBtn.textContent = reinforceRunning ? '一時停止' : '再開';
   updateReinforceTimerDisplay();
@@ -2018,6 +2044,19 @@ function startNextReinforceStep() {
     renderReinforceUI();
     return;
   }
+  reinforceRunning = true;
+  reinforceElapsedMs = 0;
+  reinforceStartEpoch = Date.now();
+  renderReinforceUI();
+  announceCue('reinforce', steps[reinforceIndex].voice);
+}
+
+// 「前に戻る」: ロック中かどうかに関わらず、直前の種目に戻ってやり直せる。
+// 最初の種目(index 0)より前には戻れない。
+function goToPreviousReinforceStep() {
+  if (reinforceIndex <= 0) return;
+  const steps = currentReinforceSteps();
+  reinforceIndex -= 1;
   reinforceRunning = true;
   reinforceElapsedMs = 0;
   reinforceStartEpoch = Date.now();
@@ -2063,6 +2102,8 @@ function tickReinforce() {
 }
 
 el.reinforceStartBtn.addEventListener('click', startNextReinforceStep);
+el.reinforcePrevBtn.addEventListener('click', goToPreviousReinforceStep);
+el.reinforceNextBtn.addEventListener('click', startNextReinforceStep); // same "advance" action, but usable even while locked
 el.reinforcePauseBtn.addEventListener('click', toggleReinforcePause);
 el.reinforceResetBtn.addEventListener('click', resetReinforce);
 
