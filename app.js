@@ -1138,7 +1138,7 @@ const selectedVoiceURIByCategory = { stretch: null, reinforce: null };
 // falling back to the team's shared copy) instead of speechSynthesis. The
 // value format is "recorded:<set name>". Sets are also scoped per category
 // for the same reason the voice choice is.
-const DEFAULT_SET_NAME = 'デフォルト(これまでの録音)'; // pre-existing recordings from before sets existed
+const DEFAULT_SET_NAME = '個人利用音声'; // pre-existing recordings from before sets existed; local-only, never shared
 const RECORDED_VOICE_PREFIX = 'recorded:';
 const knownSetsByCategory = {
   stretch: new Set([DEFAULT_SET_NAME]),
@@ -1757,7 +1757,7 @@ async function toggleRecording(category, setName, id, btn, refreshRowStatus) {
       refreshRowStatus();
       await saveRecordingToDB(category, setName, id, blob);
 
-      // デフォルト(これまでの録音)は端末のみに保存し、チーム共有はしない仕様。
+      // 個人利用音声は端末のみに保存し、チーム共有はしない仕様。
       if (setName !== DEFAULT_SET_NAME) {
         btn.disabled = true;
         btn.textContent = '☁️ 共有中…';
