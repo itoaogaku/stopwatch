@@ -1669,14 +1669,30 @@ function createRecordingRow(item) {
     if (blob) {
       const audio = new Audio(URL.createObjectURL(blob));
       currentPlaybackAudio = audio;
-      audio.play();
+      audio.play().catch((err) => alert(`再生に失敗しました(端末保存分)\n${err.name}: ${err.message}`));
       return;
     }
     const url = nestedGet(sharedRecordingsMap, key, item.id);
     if (url) {
       const audio = new Audio(url);
       currentPlaybackAudio = audio;
-      audio.play();
+      // 共有音声だけ、原因の切り分けができるよう詳しいエラーを表示する
+      // (端末保存分と違い、ネットワーク越しの再生でここが失敗しがちなため)。
+      // error イベントと play() の reject は同じ失敗で両方発火することがある
+      // ので、二重アラートにならないようフラグで抑制する。
+      let alerted = false;
+      audio.addEventListener('error', () => {
+        if (alerted) return;
+        alerted = true;
+        const code = audio.error ? audio.error.code : null;
+        const codeNames = { 1: 'MEDIA_ERR_ABORTED', 2: 'MEDIA_ERR_NETWORK', 3: 'MEDIA_ERR_DECODE', 4: 'MEDIA_ERR_SRC_NOT_SUPPORTED' };
+        alert(`共有音声の再生に失敗しました\nURL: ${url}\nエラーコード: ${code ?? '不明'}(${codeNames[code] || '不明'})`);
+      });
+      audio.play().catch((err) => {
+        if (alerted) return;
+        alerted = true;
+        alert(`共有音声の再生に失敗しました\nURL: ${url}\n${err.name}: ${err.message}`);
+      });
     }
   });
 
@@ -1778,7 +1794,17 @@ function announceCue(category, text) {
     if (url) {
       const audio = new Audio(url);
       currentPlaybackAudio = audio;
-      audio.play();
+      // 共有音声の再生に失敗しても(権限・回線・非対応形式など)ワークアウト中に
+      // 無音のまま止まらないよう、音声合成に自動でフォールバックする。二重に
+      // 読み上げないよう、フォールバック済みかどうかをフラグで管理する。
+      let fellBack = false;
+      const fallbackToSpeech = () => {
+        if (fellBack) return;
+        fellBack = true;
+        speakCue(category, text);
+      };
+      audio.addEventListener('error', fallbackToSpeech);
+      audio.play().catch(fallbackToSpeech);
       return;
     }
   }
