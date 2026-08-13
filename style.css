@@ -1084,6 +1084,12 @@ html, body {
   flex: 0 0 auto;
 }
 
+.recording-set-progress {
+  font-size: 12px;
+  color: var(--text-dim);
+  flex: 0 0 auto;
+}
+
 .recording-row {
   background: var(--panel-2);
   border: 1px solid var(--border);
