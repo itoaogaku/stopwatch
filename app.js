@@ -1286,11 +1286,20 @@ const selectedVoiceURIByCategory = { stretch: null, reinforce: null };
 // falling back to the team's shared copy) instead of speechSynthesis. The
 // value format is "recorded:<set name>". Sets are also scoped per category
 // for the same reason the voice choice is.
-const DEFAULT_SET_NAME = '個人利用音声'; // pre-existing recordings from before sets existed; always present, cannot be deleted/renamed
+// 個人利用セットは3つデフォルトで用意し(いくらでも自分で追加もできる)、
+// この3つだけは削除・名前変更ができない固定枠にする。
+// DEFAULT_SET_NAME(先頭の①)は、セット機能導入前からの互換のため —
+// dbKeyFor() の無変換キー方式(IndexedDBの古い保存形式)がこの1つの名前と
+// 結び付いている。
+const DEFAULT_SET_NAMES = ['個人利用音声①', '個人利用音声②', '個人利用音声③'];
+const DEFAULT_SET_NAME = DEFAULT_SET_NAMES[0];
+function isDefaultSetName(setName) {
+  return DEFAULT_SET_NAMES.includes(setName);
+}
 const RECORDED_VOICE_PREFIX = 'recorded:';
 const knownSetsByCategory = {
-  stretch: new Set([DEFAULT_SET_NAME]),
-  reinforce: new Set([DEFAULT_SET_NAME]),
+  stretch: new Set(DEFAULT_SET_NAMES),
+  reinforce: new Set(DEFAULT_SET_NAMES),
 }; // every set name seen so far in each category, local or shared
 const activeRecordingSetIdByCategory = { stretch: DEFAULT_SET_NAME, reinforce: DEFAULT_SET_NAME }; // which set each category's recordings modal is currently viewing/recording into
 let activeRecordingCategory = 'stretch'; // which category's recordings modal is currently open
@@ -1802,11 +1811,11 @@ function stopAnyPlayback() {
 // set picker (independent of the "声を選ぶ" playback pickers — this one just
 // controls which set the modal is currently viewing/recording into, via
 // activeRecordingSetIdByCategory).
-// 「個人利用音声」は録音機能導入前からの互換のため常に存在させる固定枠
-// なので、削除・名前変更のどちらもできない(削除・変更ボタンをここで
-// まとめて無効化する)。
+// デフォルトの3つの個人利用セットは常に存在させる固定枠なので、
+// 削除・名前変更のどちらもできない(削除・変更ボタンをここでまとめて
+// 無効化する)。
 function updateRecordingSetActionButtons() {
-  const isDefault = activeRecordingSetIdByCategory[activeRecordingCategory] === DEFAULT_SET_NAME;
+  const isDefault = isDefaultSetName(activeRecordingSetIdByCategory[activeRecordingCategory]);
   el.recordingSetDeleteBtn.disabled = isDefault;
   el.recordingSetRenameBtn.disabled = isDefault;
 }
@@ -1832,14 +1841,8 @@ el.recordingSetSelect.addEventListener('change', () => {
   buildAllRecordingRows();
 });
 
-const MAX_RECORDING_SETS_PER_CATEGORY = 3; // 個人利用音声セットは1タブにつき最大3つまで
-
 el.recordingSetNewBtn.addEventListener('click', () => {
   const category = activeRecordingCategory;
-  if (knownSetsByCategory[category].size >= MAX_RECORDING_SETS_PER_CATEGORY) {
-    alert(`セットは1つのタブにつき最大${MAX_RECORDING_SETS_PER_CATEGORY}つまでです。新しく作るには、不要なセットを「🗑 セットを削除」で削除してください。`);
-    return;
-  }
   const input = prompt('新しいセットの名前を入力してください(例:田中コーチ)');
   const name = input ? input.trim() : '';
   if (!name) return;
@@ -1853,7 +1856,7 @@ el.recordingSetNewBtn.addEventListener('click', () => {
 el.recordingSetDeleteBtn.addEventListener('click', async () => {
   const category = activeRecordingCategory;
   const setName = activeRecordingSetIdByCategory[category];
-  if (setName === DEFAULT_SET_NAME) return; // guarded by disabled state too
+  if (isDefaultSetName(setName)) return; // guarded by disabled state too
   if (!confirm(`セット「${setName}」の録音を全て削除します。よろしいですか?`)) return;
 
   const key = mapKey(category, setName);
@@ -1874,12 +1877,12 @@ el.recordingSetDeleteBtn.addEventListener('click', async () => {
 el.recordingSetRenameBtn.addEventListener('click', async () => {
   const category = activeRecordingCategory;
   const oldName = activeRecordingSetIdByCategory[category];
-  if (oldName === DEFAULT_SET_NAME) return; // guarded by disabled state too
+  if (isDefaultSetName(oldName)) return; // guarded by disabled state too
 
   const input = prompt('セットの新しい名前を入力してください', oldName);
   const newName = input ? input.trim() : '';
   if (!newName || newName === oldName) return;
-  if (newName === DEFAULT_SET_NAME || knownSetsByCategory[category].has(newName)) {
+  if (isDefaultSetName(newName) || knownSetsByCategory[category].has(newName)) {
     alert('その名前はすでに使われています。別の名前を入力してください。');
     return;
   }
