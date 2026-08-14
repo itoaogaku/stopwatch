@@ -60,6 +60,7 @@ const el = {
   stretchNextGroup: document.getElementById('stretchNextGroup'),
   stretchNextSpeech: document.getElementById('stretchNextSpeech'),
   stretchStartBtn: document.getElementById('stretchStartBtn'),
+  stretchAutoBtn: document.getElementById('stretchAutoBtn'),
   stretchPrevBtn: document.getElementById('stretchPrevBtn'),
   stretchNextBtn: document.getElementById('stretchNextBtn'),
   stretchPauseBtn: document.getElementById('stretchPauseBtn'),
@@ -1050,6 +1051,9 @@ const STRETCH_STEP_MS = 30000;
 // 始める(読み終わる頃にはだいたい30秒経っているくらいのタイミングを
 // 狙ったもの)。カウント表示や種目自体の30秒はこれまで通り変わらない。
 const STRETCH_ANNOUNCE_LEAD_MS = 1000;
+// 「全種目を連続再生」モードで、ある種目が終わってから次の種目の「はじめ」
+// を読み上げてタイマーを始めるまでに空ける間隔。
+const STRETCH_AUTO_GAP_MS = 5000;
 // 次の種目の内容は、直前の種目の30秒が終わったタイミングで自動的に先読み
 // されるので(下の enterStretchStep 参照)、実際にボタンを押して次の種目に
 // 入る時はこの短い合図だけを読む(先読みできていた場合のみ。できなかった
@@ -1284,6 +1288,12 @@ let stretchUsingAudioChain = false;
 // 確実でなかった場合(ベストエフォート止まりだった等)はここに記録しない
 // ので、フルのセリフが必ずどこかのタイミングで読み上げられる。
 let stretchPreAnnouncedIndex = -1;
+// 「▶️ 全種目を連続再生」がONかどうか。ONの間は、録音済み音声チェーンで
+// 次の種目への先読みまで確実に終わった種目については、5秒空けてから自動で
+// 次の種目の「はじめ」を読み上げてタイマーを始める(「次へ」を押さなくて
+// 良い)。録音が揃っておらずチェーンが使えない種目では自動継続できない
+// ため、その場合は通常通り手動で「次へ(スタート)」を押す必要がある。
+let stretchAutoMode = false;
 
 // Reads each step's cue aloud (via speechSynthesis or a recording — see
 // below) so the manager doesn't have to read it themselves. Shared between
@@ -2320,6 +2330,8 @@ function renderStretchUI() {
   const stepInProgress = stretchIndex >= 0 && currentStretchElapsedMs() < STRETCH_STEP_MS;
   el.stretchStartBtn.disabled = stepInProgress;
   el.stretchStartBtn.textContent = stretchIndex === -1 ? 'スタート' : stepInProgress ? 'ストレッチ中' : '次へ(スタート)';
+  el.stretchAutoBtn.classList.toggle('is-active', stretchAutoMode);
+  el.stretchAutoBtn.textContent = stretchAutoMode ? '⏸ 連続再生 停止' : '▶️ 全種目を連続再生';
   // 前に戻る/次に進む はロック中でも押せる手動スキップ用ボタンなので、
   // stepInProgress では無効化しない(戻れない/進めない条件のときだけ無効化)。
   el.stretchPrevBtn.disabled = stretchIndex <= 0;
@@ -2395,6 +2407,19 @@ function enterStretchStep(index) {
         if (nextStep) stretchPreAnnouncedIndex = index + 1;
         const afterAudio = new Audio(afterSrc);
         stretchAutoAnnounceAudio = afterAudio;
+        afterAudio.addEventListener('ended', () => {
+          if (stretchAutoAnnounceAudio !== afterAudio) return; // キャンセル済み
+          // 全種目を連続再生するモードでない、またはこれが最後の種目なら
+          // ここで止まる(次は手動で「次へ(スタート)」を押してもらう)。
+          if (!stretchAutoMode || !nextStep) return;
+          const gapAudio = new Audio(silentWavDataUri(STRETCH_AUTO_GAP_MS));
+          stretchAutoAnnounceAudio = gapAudio;
+          gapAudio.addEventListener('ended', () => {
+            if (stretchAutoAnnounceAudio !== gapAudio) return; // キャンセル済み
+            enterStretchStep(index + 1);
+          });
+          gapAudio.play().catch(() => {});
+        });
         afterAudio.play().catch(() => {});
       });
       silenceAudio.play().catch(() => {});
@@ -2439,10 +2464,25 @@ function startNextStretchStep() {
 }
 
 // 「前に戻る」: ロック中かどうかに関わらず、直前の種目に戻ってやり直せる。
-// 最初の種目(index 0)より前には戻れない。
+// 最初の種目(index 0)より前には戻れない。手動で過去に戻る操作なので、
+// 連続再生モードは解除する(戻った先から自動で進み続けると紛らわしいため)。
 function goToPreviousStretchStep() {
   if (stretchIndex <= 0) return;
+  stretchAutoMode = false;
   enterStretchStep(stretchIndex - 1);
+}
+
+// 「▶️ 全種目を連続再生」のON/OFF切り替え。ONにした時、ちょうど次の種目に
+// 進める状態(未開始、または種目が終わってロックが解除された状態)なら、
+// そのまま次の種目から自動連続再生を始める。種目の途中(ロック中)なら、
+// フラグだけ立てておき、この種目が終わったタイミングから自動継続に入る。
+function toggleStretchAutoMode() {
+  stretchAutoMode = !stretchAutoMode;
+  if (stretchAutoMode && !el.stretchStartBtn.disabled) {
+    startNextStretchStep();
+  } else {
+    renderStretchUI();
+  }
 }
 
 // For interruptions mid-stretch (a car passing on the road, etc.) — freezes
@@ -2463,6 +2503,7 @@ function toggleStretchPause() {
 
 function resetStretch() {
   stopStretchAutoAnnounce();
+  stretchAutoMode = false;
   stretchPreAnnouncedIndex = -1;
   stretchIndex = -1;
   stretchRunning = false;
@@ -2496,6 +2537,7 @@ function tickStretch() {
 }
 
 el.stretchStartBtn.addEventListener('click', startNextStretchStep);
+el.stretchAutoBtn.addEventListener('click', toggleStretchAutoMode);
 el.stretchPrevBtn.addEventListener('click', goToPreviousStretchStep);
 el.stretchNextBtn.addEventListener('click', startNextStretchStep); // same "advance" action, but usable even while locked
 el.stretchPauseBtn.addEventListener('click', toggleStretchPause);
