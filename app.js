@@ -3004,13 +3004,36 @@ function saveRollcallTags() {
 
 /* ----- 名簿(氏名・学年・タグ)のチーム共有 -----
    名簿の登録・編集データ(このタブで管理する氏名・学年・タグ)は、録音の
-   チーム共有と同じXserverにアップロードしてチームで共有する(itonomaki
-   アプリの /api/rollcall-roster、認証は録音共有と同じ合言葉
-   SHARED_AUDIO_TOKEN_KEY をそのまま流用)。一方、実際に点呼した/してい
-   ないのチェック状態(checked / checkedSeq)は各端末だけのローカル情報の
-   ままにする(この端末で今まさに点呼中の状態を他の端末の値で上書きしな
-   いよう、共有データを取り込む時はチェック状態だけ元のものを残す)。 */
+   チーム共有と同じXserver(itonomakiアプリの /api/rollcall-roster)に
+   アップロードしてチームで共有する。ただし合言葉は録音共有とは別物
+   (ROLLCALL_TOKEN_KEY)にしてあり、それぞれ別のチームに別々の合言葉を
+   配れる。一方、実際に点呼した/していないのチェック状態(checked /
+   checkedSeq)は各端末だけのローカル情報のままにする(この端末で今まさに
+   点呼中の状態を他の端末の値で上書きしないよう、共有データを取り込む時は
+   チェック状態だけ元のものを残す)。 */
 const ROLLCALL_ROSTER_API_URL = 'https://itonomaki-55ve.vercel.app/api/rollcall-roster';
+const ROLLCALL_TOKEN_KEY = 'rollcallRosterToken';
+
+function getStoredRollcallToken() {
+  try {
+    return localStorage.getItem(ROLLCALL_TOKEN_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function promptForRollcallToken() {
+  const input = prompt('点呼名簿の編集用の合言葉を入力してください(この端末に保存され、次回からは聞かれません)');
+  const token = input ? input.trim() : '';
+  if (token) {
+    try {
+      localStorage.setItem(ROLLCALL_TOKEN_KEY, token);
+    } catch {
+      /* localStorage unavailable (private browsing etc.) — just skip this once */
+    }
+  }
+  return token;
+}
 
 function rollcallRosterPayload() {
   return {
@@ -3056,18 +3079,18 @@ async function loadSharedRollcallRoster() {
   }
 }
 
-// 名簿の追加・編集・削除・タグ管理は全て合言葉が無いとできない(録音の
-// チーム共有と同じ合言葉)。合言葉が得られなければ null を返し、呼び出し
-// 側は編集そのものを行わない。
+// 名簿の追加・編集・削除・タグ管理は全て合言葉が無いとできない(点呼名簿
+// 専用の合言葉。録音のチーム共有とは別物)。合言葉が得られなければ null を
+// 返し、呼び出し側は編集そのものを行わない。
 async function requireRollcallEditToken() {
-  let token = getStoredAudioToken();
-  if (!token) token = promptForAudioToken();
+  let token = getStoredRollcallToken();
+  if (!token) token = promptForRollcallToken();
   return token || null;
 }
 
 async function uploadRollcallRosterToServer(allowRetry = true) {
-  let token = getStoredAudioToken();
-  if (!token) token = promptForAudioToken();
+  let token = getStoredRollcallToken();
+  if (!token) token = promptForRollcallToken();
   if (!token) return false;
 
   try {
@@ -3078,7 +3101,7 @@ async function uploadRollcallRosterToServer(allowRetry = true) {
     });
     if (res.status === 401) {
       try {
-        localStorage.removeItem(SHARED_AUDIO_TOKEN_KEY);
+        localStorage.removeItem(ROLLCALL_TOKEN_KEY);
       } catch {
         /* ignore */
       }
