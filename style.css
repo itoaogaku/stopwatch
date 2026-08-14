@@ -1416,11 +1416,11 @@ html, body {
 .rollcall-add-form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 .rollcall-add-form-row {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 .rollcall-add-form-row input[type='text'] {
   flex: 1 1 0;
@@ -1453,7 +1453,7 @@ html, body {
 .rollcall-filter {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 .rollcall-filter span {
   font-size: 10px;
@@ -1474,27 +1474,27 @@ html, body {
 .rollcall-tag-manage {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 .rollcall-tag-manage-heading {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-dim);
 }
 .rollcall-tag-chip-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 .rollcall-tag-chip {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 4px 6px 4px 12px;
-  font-size: 12px;
+  padding: 3px 4px 3px 10px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text);
 }
@@ -1506,6 +1506,12 @@ html, body {
   font-size: 15px;
   line-height: 1;
   padding: 2px 4px;
+}
+/* この登録モーダルは項目数が多く縦に詰まりやすいので、共通モーダルの
+   ブロック間の余白(gap: 10px)より少し詰めて、下の一覧のスクロール領域を
+   広く取れるようにする。 */
+#rollcallRegisterModal.stretch-recordings-modal .stretch-recordings-modal-panel {
+  gap: 6px;
 }
 .rollcall-tag-badge-toggle {
   display: flex;
@@ -1564,6 +1570,9 @@ html, body {
   gap: 8px;
   flex-wrap: wrap;
 }
+.rollcall-register-row-view[hidden] {
+  display: none;
+}
 .rollcall-register-row-info {
   display: flex;
   flex-direction: column;
@@ -1592,5 +1601,8 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+.rollcall-register-row-edit[hidden] {
+  display: none;
 }
 
