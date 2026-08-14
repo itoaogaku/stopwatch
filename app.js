@@ -1046,6 +1046,15 @@ const STRETCH_STEPS = [
 ];
 
 const STRETCH_STEP_MS = 30000;
+// 次の種目の内容は、直前の種目の30秒が終わったタイミングで自動的に先読み
+// されるので(下の enterStretchStep 参照)、実際にボタンを押して次の種目に
+// 入る時はこの短い合図だけを読む(先読みできていた場合のみ。できなかった
+// 場合はこれまで通りその種目の内容をフルで読み上げる)。
+const STRETCH_START_CUE = 'はじめ';
+// 最後の種目の30秒が終わった時に読み上げる完了の合図。ちょうど最後の種目
+// (前脛骨筋(終わり))自体のセリフと同じ文言なので、その録音をそのまま
+// 使い回せる。
+const STRETCH_COMPLETE_CUE = '終わりです';
 
 /* ---------- Reinforcement training menus (補強) ---------- */
 // Same "group / speech / voice" shape as STRETCH_STEPS (see comment above),
@@ -1265,6 +1274,12 @@ let stretchAutoAnnounceAudio = null;
 // 今の種目が上記の<audio>チェーン方式で「終わり」を鳴らす予定かどうか。
 // true の間は tickStretch 側のベストエフォート呼び出しを重複させない。
 let stretchUsingAudioChain = false;
+// 上記のチェーンで実際に(確実に)次の種目の内容を先読みできた場合、その
+// 種目のインデックスを保持する。ボタン操作でその種目に入る時、この値と
+// 一致していればフルのセリフは省略し、短い開始の合図だけにする。先読みが
+// 確実でなかった場合(ベストエフォート止まりだった等)はここに記録しない
+// ので、フルのセリフが必ずどこかのタイミングで読み上げられる。
+let stretchPreAnnouncedIndex = -1;
 
 // Reads each step's cue aloud (via speechSynthesis or a recording — see
 // below) so the manager doesn't have to read it themselves. Shared between
@@ -1793,12 +1808,17 @@ function buildRecordingItems(category) {
   }
   if (category === 'stretch') {
     STRETCH_STEPS.forEach(addStep);
+    // ストレッチは各種目の30秒が終わると次の種目の内容を自動で先読みする
+    // ため、「終わり」の合図はもう使わない。代わりに、その先読みの後
+    // ボタン操作で実際にその種目に入る時に読む短い開始の合図を登録する。
+    if (!byText.has(STRETCH_START_CUE)) byText.set(STRETCH_START_CUE, []);
+    byText.get(STRETCH_START_CUE).push('(共通)開始の合図');
   } else {
     const tab = REINFORCE_MENU_TABS.find((t) => t.id === category);
     (tab ? REINFORCE_MENUS[tab.menuKey] || [] : []).forEach(addStep);
+    if (!byText.has('終わり')) byText.set('終わり', []);
+    byText.get('終わり').push('(共通)終わりの合図');
   }
-  if (!byText.has('終わり')) byText.set('終わり', []);
-  byText.get('終わり').push('(共通)終わりの合図');
   return Array.from(byText.entries()).map(([text, groupNames]) => ({ id: text, text, groupNames }));
 }
 
@@ -2320,13 +2340,19 @@ function stopStretchAutoAnnounce() {
 // JS側では回避できないため、必ずこの実際のボタン操作に紐づけてセリフを
 // 読み上げ、それが読み終わってから初めてその種目のタイマーを開始する。
 //
-// 「終わり」については、録音済み音声(この端末またはチーム共有)で
-// セリフ・終わりの両方が揃っている場合、セリフ再生からスキマなく繋がる
-// 1本の<audio>再生チェーン(セリフ→30秒の無音→終わり)を、このボタン
-// 操作をきっかけに今すぐ開始しておく。<audio>要素の再生自体にはCORSが
-// 不要なため、チーム共有録音(CORS未対応のXserver)でも問題なく鳴らせる。
-// 音声合成を使っている場合や録音が揃っていない場合は、この方式が使えない
-// ため、これまで通りtickStretch側のベストエフォート呼び出しに任せる。
+// この種目のセリフと、次の種目のセリフ(最後の種目なら「終わりです」)の
+// 両方が録音済み音声(この端末またはチーム共有)で揃っている場合、セリフ
+// 再生からスキマなく繋がる1本の<audio>再生チェーン(セリフ→30秒の無音→
+// 次の種目のセリフ)を、このボタン操作をきっかけに今すぐ開始しておく。
+// これにより、この種目の30秒が終わるのとほぼ同時に次の種目の内容が自動で
+// 読み上げられる(ボタン操作なしでも<audio>要素の再生自体にはCORSが不要
+// なため、チーム共有録音(CORS未対応のXserver)でも問題なく鳴らせる)。
+// この自動先読みが確実に行えた場合は stretchPreAnnouncedIndex に記録し、
+// 実際にその種目に入る時は短い「はじめ」の合図だけにしてフルのセリフの
+// 二重読みを避ける。音声合成を使っている場合や録音が揃っていない場合は
+// この方式が使えないため、これまで通りtickStretch側のベストエフォート
+// 呼び出しに任せる(その場合は先読みが確実でないので、ボタン操作時に
+// 必ずフルのセリフを読み上げる)。
 function enterStretchStep(index) {
   stopStretchAutoAnnounce();
   stretchIndex = index;
@@ -2336,10 +2362,17 @@ function enterStretchStep(index) {
   renderStretchUI();
 
   const step = STRETCH_STEPS[index];
-  const cueSrc = voiceEnabled ? recordedCueAudioSrc('stretch', step.voice) : null;
-  const endSrc = voiceEnabled ? recordedCueAudioSrc('stretch', '終わり') : null;
+  const wasPreAnnounced = stretchPreAnnouncedIndex === index;
+  stretchPreAnnouncedIndex = -1;
+  const buttonCueText = wasPreAnnounced ? STRETCH_START_CUE : step.voice;
 
-  if (cueSrc && endSrc) {
+  const nextStep = STRETCH_STEPS[index + 1] || null;
+  const afterText = nextStep ? nextStep.voice : STRETCH_COMPLETE_CUE;
+
+  const cueSrc = voiceEnabled ? recordedCueAudioSrc('stretch', buttonCueText) : null;
+  const afterSrc = voiceEnabled ? recordedCueAudioSrc('stretch', afterText) : null;
+
+  if (cueSrc && afterSrc) {
     stretchUsingAudioChain = true;
     stopAnyPlayback();
     const cueAudio = new Audio(cueSrc);
@@ -2355,9 +2388,10 @@ function enterStretchStep(index) {
       stretchAutoAnnounceAudio = silenceAudio;
       silenceAudio.addEventListener('ended', () => {
         if (stretchAutoAnnounceAudio !== silenceAudio) return; // キャンセル済み
-        const endAudio = new Audio(endSrc);
-        stretchAutoAnnounceAudio = endAudio;
-        endAudio.play().catch(() => {});
+        if (nextStep) stretchPreAnnouncedIndex = index + 1;
+        const afterAudio = new Audio(afterSrc);
+        stretchAutoAnnounceAudio = afterAudio;
+        afterAudio.play().catch(() => {});
       });
       silenceAudio.play().catch(() => {});
     };
@@ -2375,7 +2409,7 @@ function enterStretchStep(index) {
   }
 
   stretchUsingAudioChain = false;
-  announceCue('stretch', step.voice).then(() => {
+  announceCue('stretch', buttonCueText).then(() => {
     // 読み上げを待っている間に別の操作で状態が変わっていたら何もしない。
     if (stretchIndex !== index || !stretchAwaitingVoice) return;
     stretchAwaitingVoice = false;
@@ -2389,6 +2423,7 @@ function startNextStretchStep() {
   const nextIndex = stretchIndex + 1;
   if (nextIndex >= STRETCH_STEPS.length) {
     stopStretchAutoAnnounce();
+    stretchPreAnnouncedIndex = -1;
     stretchIndex = -1;
     stretchRunning = false;
     stretchAwaitingVoice = false;
@@ -2424,6 +2459,7 @@ function toggleStretchPause() {
 
 function resetStretch() {
   stopStretchAutoAnnounce();
+  stretchPreAnnouncedIndex = -1;
   stretchIndex = -1;
   stretchRunning = false;
   stretchAwaitingVoice = false;
@@ -2438,13 +2474,15 @@ function tickStretch() {
       stretchElapsedMs = STRETCH_STEP_MS;
       stretchRunning = false;
       renderStretchUI();
-      // 録音済み音声(セリフ・終わりの両方)が揃っている場合は、セリフ再生
-      // から繋がる<audio>チェーンが既に「終わり」の自動再生を予約済み
-      // なので、ここでは重複させない。それ以外の場合はベストエフォートで
-      // 鳴らす(音声合成の場合、iOS Safariでは鳴らないことがある。各種目
-      // のセリフ自体は次へボタンを押した時に確実に読み上げられる)。
+      // 録音済み音声(セリフ・次の種目のセリフの両方)が揃っている場合は、
+      // セリフ再生から繋がる<audio>チェーンが既に次の種目の内容(最後の
+      // 種目なら「終わりです」)の自動先読みを予約済みなので、ここでは
+      // 重複させない。それ以外の場合はベストエフォートで鳴らす(音声合成
+      // の場合、iOS Safariでは鳴らないことがある。いずれの場合も、次の
+      // 種目の内容自体は次へボタンを押した時に確実に読み上げられる)。
       if (!stretchUsingAudioChain) {
-        announceCue('stretch', '終わり');
+        const nextStep = STRETCH_STEPS[stretchIndex + 1] || null;
+        announceCue('stretch', nextStep ? nextStep.voice : STRETCH_COMPLETE_CUE);
       }
     } else {
       updateStretchTimerDisplay();
