@@ -1,5 +1,17 @@
 'use strict';
 
+// 補強のメニュー(フル・コアA・コアB・ループ・下肢)は、それぞれ独立した
+// タブとして表示する(タイマー・声の選択・録音セットも完全に別)。id が
+// そのままカテゴリID(録音・声選択のキー)にも、タブパネルID
+// (`${id}Tab`)にもなる。el(下)より先に必要なので、ファイル先頭に置く。
+const REINFORCE_MENU_TABS = [
+  { id: 'reinforceFull', tabLabel: '補強フル', menuKey: 'フル' },
+  { id: 'reinforceCoreA', tabLabel: '補強コアA', menuKey: 'コアA' },
+  { id: 'reinforceCoreB', tabLabel: '補強コアB', menuKey: 'コアB' },
+  { id: 'reinforceLoop', tabLabel: '補強ループ', menuKey: 'ループ' },
+  { id: 'reinforceLower', tabLabel: '補強下肢', menuKey: '下肢' },
+];
+
 /* ---------- Global DOM (singletons) ---------- */
 const el = {
   stopwatchList: document.getElementById('stopwatchList'),
@@ -18,9 +30,10 @@ const el = {
     pace: document.getElementById('paceTab'),
     crossing: document.getElementById('crossingTab'),
     stretch: document.getElementById('stretchTab'),
-    reinforce: document.getElementById('reinforceTab'),
+    ...Object.fromEntries(REINFORCE_MENU_TABS.map((t) => [t.id, document.getElementById(`${t.id}Tab`)])),
     tabata: document.getElementById('tabataTab'),
   },
+  reinforceMenuTabTemplate: document.getElementById('reinforceMenuTabTemplate'),
   paceRows: document.getElementById('paceRows'),
   paceAddRowBtn: document.getElementById('paceAddRowBtn'),
   paceRowTemplate: document.getElementById('paceRowTemplate'),
@@ -51,21 +64,6 @@ const el = {
   stretchNextBtn: document.getElementById('stretchNextBtn'),
   stretchPauseBtn: document.getElementById('stretchPauseBtn'),
   stretchResetBtn: document.getElementById('stretchResetBtn'),
-  reinforceProgress: document.getElementById('reinforceProgress'),
-  reinforceVoiceToggle: document.getElementById('reinforceVoiceToggle'),
-  reinforceVoiceSelect: document.getElementById('reinforceVoiceSelect'),
-  reinforceRecordingsToggle: document.getElementById('reinforceRecordingsToggle'),
-  reinforceMenuPicker: document.getElementById('reinforceMenuPicker'),
-  reinforceTimer: document.getElementById('reinforceTimer'),
-  reinforceCurrentGroup: document.getElementById('reinforceCurrentGroup'),
-  reinforceCurrentSpec: document.getElementById('reinforceCurrentSpec'),
-  reinforceNextGroup: document.getElementById('reinforceNextGroup'),
-  reinforceNextSpeech: document.getElementById('reinforceNextSpeech'),
-  reinforceStartBtn: document.getElementById('reinforceStartBtn'),
-  reinforcePrevBtn: document.getElementById('reinforcePrevBtn'),
-  reinforceNextBtn: document.getElementById('reinforceNextBtn'),
-  reinforcePauseBtn: document.getElementById('reinforcePauseBtn'),
-  reinforceResetBtn: document.getElementById('reinforceResetBtn'),
   tabataProgress: document.getElementById('tabataProgress'),
   tabataDisplayPanel: document.getElementById('tabataDisplayPanel'),
   tabataPhase: document.getElementById('tabataPhase'),
@@ -1055,8 +1053,8 @@ const STRETCH_STEP_MS = 30000;
 // カウント") and "durationSec": a number for steps with an explicit fixed
 // duration (auto-counts and auto-stops, like the stretch timer), or null for
 // rep/count-based steps with no real clock duration (the manager decides
-// when to advance — see startNextReinforceStep). Menus other than フル are
-// added as their content is provided; an empty array just shows as "準備中".
+// when to advance — see createReinforceTab's startNext()). Each key here is
+// its own independent top-level tab — see REINFORCE_MENU_TABS.
 const REINFORCE_MENUS = {
   フル: [
     { group: '【1】膝立て', spec: '10回4カウント', speech: '膝立ていきます、よーいはじめ', voice: '膝立ていきます、よーいはじめ', durationSec: null },
@@ -1248,8 +1246,6 @@ const REINFORCE_MENUS = {
     { group: '【Lv.4】トゥリフト&カーフレイズ(反対)', spec: '片脚20回1カウント', speech: '反対', voice: '反対', durationSec: null },
   ],
 };
-const REINFORCE_MENU_ORDER = ['フル', 'コアA', 'コアB', 'ループ', '下肢'];
-
 let stretchIndex = -1; // -1 = not started yet
 let stretchRunning = false;
 let stretchElapsedMs = 0; // accumulated time for the current step, while paused/stopped
@@ -1273,10 +1269,11 @@ let voiceEnabled = true;
 // Settings > Accessibility (that setting only affects VoiceOver/Speak
 // Screen, not web pages). So instead of guessing, let the user see exactly
 // what's available in THIS browser and pick directly, with a live preview.
-// ストレッチ・補強はそれぞれ完全に独立した録音プールを持つため(同じ
-// 「反対」でも別収録として扱う)、選んだ声もタブごとに別々に覚えておく。
-const CATEGORIES = ['stretch', 'reinforce'];
-const selectedVoiceURIByCategory = { stretch: null, reinforce: null };
+// ストレッチと補強の各タブ(フル・コアA…)はそれぞれ完全に独立した
+// 録音プールを持つため(同じ「反対」でも別収録として扱う)、選んだ声も
+// タブごとに別々に覚えておく。
+const CATEGORIES = ['stretch', ...REINFORCE_MENU_TABS.map((t) => t.id)];
+const selectedVoiceURIByCategory = Object.fromEntries(CATEGORIES.map((c) => [c, null]));
 
 // Recordings are grouped into named "sets" (e.g. one per coach) so several
 // complete recordings can coexist and be switched between for playback,
@@ -1297,11 +1294,8 @@ function isDefaultSetName(setName) {
   return DEFAULT_SET_NAMES.includes(setName);
 }
 const RECORDED_VOICE_PREFIX = 'recorded:';
-const knownSetsByCategory = {
-  stretch: new Set(DEFAULT_SET_NAMES),
-  reinforce: new Set(DEFAULT_SET_NAMES),
-}; // every set name seen so far in each category, local or shared
-const activeRecordingSetIdByCategory = { stretch: DEFAULT_SET_NAME, reinforce: DEFAULT_SET_NAME }; // which set each category's recordings modal is currently viewing/recording into
+const knownSetsByCategory = Object.fromEntries(CATEGORIES.map((c) => [c, new Set(DEFAULT_SET_NAMES)])); // every set name seen so far in each category, local or shared
+const activeRecordingSetIdByCategory = Object.fromEntries(CATEGORIES.map((c) => [c, DEFAULT_SET_NAME])); // which set each category's recordings modal is currently viewing/recording into
 let activeRecordingCategory = 'stretch'; // which category's recordings modal is currently open
 
 function recordedVoiceValue(setName) {
@@ -1314,8 +1308,10 @@ function setNameFromVoiceValue(value) {
   return value.slice(RECORDED_VOICE_PREFIX.length);
 }
 
-const voiceSelectByCategory = { stretch: el.stretchVoiceSelect, reinforce: el.reinforceVoiceSelect };
-const voiceToggles = [el.stretchVoiceToggle, el.reinforceVoiceToggle].filter(Boolean); // mute is one shared, device-wide setting
+// 補強の各タブ(フル・コアA…)は createReinforceTab() が自分の <select> を
+// ここに登録する(まだ生成されていないため、この時点では stretch のみ)。
+const voiceSelectByCategory = { stretch: el.stretchVoiceSelect };
+const voiceToggles = []; // mute is one shared, device-wide setting — registerVoiceToggle() fills this in
 
 function populateVoiceSelect(category) {
   const select = voiceSelectByCategory[category];
@@ -1444,14 +1440,21 @@ function speakCue(category, text) {
   });
 }
 
-function renderVoiceToggle() {
-  voiceToggles.forEach((toggle) => {
-    toggle.classList.toggle('is-muted', !voiceEnabled);
-    toggle.textContent = voiceEnabled ? '🔊 音声' : '🔇 音声';
-  });
+function applyVoiceToggleState(toggle) {
+  toggle.classList.toggle('is-muted', !voiceEnabled);
+  toggle.textContent = voiceEnabled ? '🔊 音声' : '🔇 音声';
 }
 
-voiceToggles.forEach((toggle) => {
+function renderVoiceToggle() {
+  voiceToggles.forEach(applyVoiceToggleState);
+}
+
+// stretch用の固定ボタンだけでなく、補強の各タブが動的に生成する自分の
+// 🔊音声ボタンもここから登録する(ON/OFFは端末共通の1つの設定)。
+function registerVoiceToggle(toggle) {
+  if (!toggle) return;
+  voiceToggles.push(toggle);
+  applyVoiceToggleState(toggle);
   toggle.addEventListener('click', () => {
     voiceEnabled = !voiceEnabled;
     if (!voiceEnabled) {
@@ -1460,8 +1463,9 @@ voiceToggles.forEach((toggle) => {
     }
     renderVoiceToggle();
   });
-});
-renderVoiceToggle();
+}
+
+registerVoiceToggle(el.stretchVoiceToggle);
 
 /* ---------- Cue recordings (自分の声で録音) ---------- */
 // Lets the manager record their own voice for each cue instead of relying on
@@ -1469,10 +1473,11 @@ renderVoiceToggle();
 // persistent storage in this app — everything else here is deliberately
 // stateless, but there's no other way to keep a recording across reloads.
 //
-// ストレッチと補強は完全に独立したタイマーで、同じ「反対」という言葉でも
-// 別の収録として扱いたいという要望から、あらゆる録音データは
-// (category, setName, text) の3つ組で管理される。category は 'stretch' か
-// 'reinforce'。recordingsMap/sharedRecordingsMapは Map<"category setName", Map<text, ...>>
+// ストレッチと補強の各タブ(フル・コアA…)は完全に独立したタイマーで、
+// 同じ「反対」という言葉でも別の収録として扱いたいという要望から、あら
+// ゆる録音データは (category, setName, text) の3つ組で管理される。
+// category は CATEGORIES のいずれか('stretch' またはいずれかの補強タブ
+// のid)。recordingsMap/sharedRecordingsMapは Map<"category setName", Map<text, ...>>
 // という2階層構造で、外側キーをmapKey()で組み立てて既存のnested*ヘルパーを
 // そのまま使い回す。
 const RECORDINGS_DB_NAME = 'stretchRecordings';
@@ -1533,6 +1538,14 @@ function promptForAudioToken() {
   return token;
 }
 
+// 補強が複数タブに分かれる前、サーバー上の共有録音は全て category:
+// "reinforce" で保存されていた(当時「フル」しか内容がなかったため、実質
+// 補強フルのもの)。読み込み時にそのまま補強フルへ割り当て直す。
+function normalizeIncomingCategory(rawCategory) {
+  if (rawCategory === 'reinforce') return 'reinforceFull';
+  return CATEGORIES.includes(rawCategory) ? rawCategory : 'stretch';
+}
+
 async function loadSharedRecordings() {
   try {
     const res = await fetch(SHARED_AUDIO_API_URL, { cache: 'no-store' });
@@ -1541,7 +1554,7 @@ async function loadSharedRecordings() {
     sharedRecordingsMap.clear();
     (data.items || []).forEach((item) => {
       if (!item || !item.text || !item.url) return;
-      const category = item.category === 'reinforce' ? 'reinforce' : 'stretch';
+      const category = normalizeIncomingCategory(item.category);
       const setName = item.setName || DEFAULT_SET_NAME;
       knownSetsByCategory[category].add(setName);
       nestedSet(sharedRecordingsMap, mapKey(category, setName), item.text, item.url);
@@ -1671,7 +1684,12 @@ function parseDbKey(key) {
 
 async function loadAllRecordings() {
   const db = await openRecordingsDB();
-  return new Promise((resolve, reject) => {
+  // 補強が複数タブに分かれる前のこの端末の録音は、IndexedDB内で
+  // category: "reinforce" として保存されている。読み込んだ後にまとめて
+  // 補強フル(reinforceFull)へ移し替え、以後この移行処理が不要になる
+  // ようにする。
+  const legacyReinforceEntries = []; // { setName, text, blob }
+  await new Promise((resolve, reject) => {
     const store = db.transaction(RECORDINGS_STORE_NAME, 'readonly').objectStore(RECORDINGS_STORE_NAME);
     const request = store.getAllKeys();
     request.onsuccess = () => {
@@ -1680,10 +1698,15 @@ async function loadAllRecordings() {
       if (getAll) {
         getAll.onsuccess = () => {
           keys.forEach((key, i) => {
-            const { category, setName, text } = parseDbKey(key);
+            let { category, setName, text } = parseDbKey(key);
+            const blob = getAll.result[i];
+            if (category === 'reinforce') {
+              legacyReinforceEntries.push({ setName, text, blob });
+              category = 'reinforceFull';
+            }
             if (!knownSetsByCategory[category]) return; // ignore anything from an unrecognized future category
             knownSetsByCategory[category].add(setName);
-            nestedSet(recordingsMap, mapKey(category, setName), text, getAll.result[i]);
+            nestedSet(recordingsMap, mapKey(category, setName), text, blob);
           });
           resolve();
         };
@@ -1694,6 +1717,10 @@ async function loadAllRecordings() {
     };
     request.onerror = () => reject(request.error);
   });
+  for (const { setName, text, blob } of legacyReinforceEntries) {
+    await saveRecordingToDB('reinforceFull', setName, text, blob);
+    await deleteRecordingFromDB('reinforce', setName, text);
+  }
 }
 
 async function saveRecordingToDB(category, setName, text, blob) {
@@ -1747,9 +1774,9 @@ function pickRecordingMimeType() {
 // read at several different steps within a menu, "終わり" for every step's
 // auto-stop, etc. — so one recording covers every step within that category
 // that says the same thing, instead of making the manager record the same
-// word over and over. ストレッチ and 補強 are listed completely separately
-// (see the module comment above) so this only pools cues within the given
-// category, never across the two.
+// word over and over. ストレッチと補強の各タブ(フル・コアA…)はそれぞれ
+// 独立したカテゴリなので、ここで文言をまとめるのもそのカテゴリ内だけ
+// (同じ「反対」でもタブが違えば別収録になる)。
 function buildRecordingItems(category) {
   const byText = new Map(); // text -> groupNames[]
   function addStep(step) {
@@ -1759,7 +1786,8 @@ function buildRecordingItems(category) {
   if (category === 'stretch') {
     STRETCH_STEPS.forEach(addStep);
   } else {
-    Object.values(REINFORCE_MENUS).forEach((steps) => steps.forEach(addStep));
+    const tab = REINFORCE_MENU_TABS.find((t) => t.id === category);
+    (tab ? REINFORCE_MENUS[tab.menuKey] || [] : []).forEach(addStep);
   }
   if (!byText.has('終わり')) byText.set('終わり', []);
   byText.get('終わり').push('(共通)終わりの合図');
@@ -2139,7 +2167,10 @@ loadSharedRecordings()
   })
   .catch(() => {});
 
-const RECORDINGS_MODAL_TITLE = { stretch: 'ストレッチのセリフを自分の声で録音する', reinforce: '補強のセリフを自分の声で録音する' };
+const RECORDINGS_MODAL_TITLE = {
+  stretch: 'ストレッチのセリフを自分の声で録音する',
+  ...Object.fromEntries(REINFORCE_MENU_TABS.map((t) => [t.id, `${t.tabLabel}のセリフを自分の声で録音する`])),
+};
 
 function openRecordingsModal(category) {
   activeRecordingCategory = category;
@@ -2160,7 +2191,6 @@ function closeRecordingsModal() {
   stopAnyPlayback();
 }
 if (el.stretchRecordingsToggle) el.stretchRecordingsToggle.addEventListener('click', () => openRecordingsModal('stretch'));
-if (el.reinforceRecordingsToggle) el.reinforceRecordingsToggle.addEventListener('click', () => openRecordingsModal('reinforce'));
 el.stretchRecordingsCloseBtn.addEventListener('click', closeRecordingsModal);
 el.stretchRecordingsModal.addEventListener('click', (e) => {
   if (e.target === el.stretchRecordingsModal) closeRecordingsModal(); // backdrop tap
@@ -2298,171 +2328,178 @@ el.stretchResetBtn.addEventListener('click', resetStretch);
 renderStretchUI();
 requestAnimationFrame(tickStretch);
 
-/* ---------- Reinforcement training timer (補強) ---------- */
+/* ---------- Reinforcement training timers (補強フル・コアA・コアB・ループ・下肢) ---------- */
 // Structurally like the stretch timer (manual "次へ" advance through a list
 // of steps, sharing the same voice/recording engine above), generalized to
 // handle a mix of fixed-duration steps (auto-counts and auto-stops, like
 // every stretch step) and rep/count-based steps with no real duration (the
 // manager just presses "次へ" whenever the group is done — see
-// REINFORCE_MENUS's durationSec comment). Also adds a menu picker since
-// there are multiple named workouts (フル・コアA・コアB・ループ・下肢).
-let reinforceMenuKey = 'フル';
-let reinforceIndex = -1;
-let reinforceRunning = false;
-let reinforceElapsedMs = 0;
-let reinforceStartEpoch = 0;
+// REINFORCE_MENUS's durationSec comment).
+//
+// Each of REINFORCE_MENU_TABS is now a fully independent top-level tab —
+// own timer, own voice picker, own recording sets — rather than a picker
+// inside one shared 補強 tab. createReinforceTab() clones
+// #reinforceMenuTabTemplate into that tab's (otherwise-empty) panel and
+// wires it up as its own self-contained instance (closure-local state, no
+// globals shared between tabs).
+function createReinforceTab(tab) {
+  const panel = document.getElementById(`${tab.id}Tab`);
+  if (!panel) return;
+  panel.appendChild(el.reinforceMenuTabTemplate.content.cloneNode(true));
 
-function currentReinforceSteps() {
-  return REINFORCE_MENUS[reinforceMenuKey] || [];
-}
+  const elLocal = {
+    voiceToggle: panel.querySelector('.reinforce-voice-toggle'),
+    voiceSelect: panel.querySelector('.reinforce-voice-select'),
+    recordingsToggle: panel.querySelector('.reinforce-recordings-toggle'),
+    progress: panel.querySelector('.reinforce-progress'),
+    timer: panel.querySelector('.reinforce-timer'),
+    currentGroup: panel.querySelector('.reinforce-current-group'),
+    currentSpec: panel.querySelector('.reinforce-current-spec'),
+    nextGroup: panel.querySelector('.reinforce-next-group'),
+    nextSpeech: panel.querySelector('.reinforce-next-speech'),
+    startBtn: panel.querySelector('.reinforce-start-btn'),
+    prevBtn: panel.querySelector('.reinforce-prev-btn'),
+    nextBtn: panel.querySelector('.reinforce-next-btn'),
+    pauseBtn: panel.querySelector('.reinforce-pause-btn'),
+    resetBtn: panel.querySelector('.reinforce-reset-btn'),
+  };
 
-function currentReinforceStep() {
-  const steps = currentReinforceSteps();
-  return reinforceIndex >= 0 && reinforceIndex < steps.length ? steps[reinforceIndex] : null;
-}
+  let index = -1;
+  let running = false;
+  let elapsedMs = 0;
+  let startEpoch = 0;
 
-function currentReinforceDurationMs() {
-  const step = currentReinforceStep();
-  return step && step.durationSec ? step.durationSec * 1000 : null;
-}
-
-function currentReinforceElapsedMs() {
-  if (!reinforceRunning) return reinforceElapsedMs;
-  return reinforceElapsedMs + (Date.now() - reinforceStartEpoch);
-}
-
-function updateReinforceTimerDisplay() {
-  const durationMs = currentReinforceDurationMs();
-  const rawElapsedMs = reinforceIndex === -1 ? 0 : currentReinforceElapsedMs();
-  const elapsedMs = durationMs !== null ? Math.min(rawElapsedMs, durationMs) : rawElapsedMs;
-  el.reinforceTimer.textContent = formatStretchTimer(elapsedMs);
-  el.reinforceTimer.classList.toggle('is-overtime', durationMs !== null && rawElapsedMs >= durationMs);
-}
-
-function renderReinforceMenuPicker() {
-  el.reinforceMenuPicker.innerHTML = '';
-  REINFORCE_MENU_ORDER.forEach((key) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'btn btn-ghost btn-sm reinforce-menu-btn';
-    btn.textContent = key;
-    btn.classList.toggle('is-active', key === reinforceMenuKey);
-    btn.addEventListener('click', () => {
-      if (key === reinforceMenuKey) return;
-      reinforceMenuKey = key;
-      resetReinforce();
-      renderReinforceMenuPicker();
-    });
-    el.reinforceMenuPicker.appendChild(btn);
-  });
-}
-
-function renderReinforceUI() {
-  const steps = currentReinforceSteps();
-  const current = currentReinforceStep();
-  const next = reinforceIndex + 1 < steps.length ? steps[reinforceIndex + 1] : null;
-
-  el.reinforceCurrentGroup.textContent = current ? current.group : steps.length > 0 ? '準備中' : 'このメニューは準備中です';
-  el.reinforceCurrentSpec.textContent = current ? current.spec : '';
-  el.reinforceNextGroup.textContent = next
-    ? next.group
-    : reinforceIndex >= 0
-      ? 'これで終わりです'
-      : steps[0]
-        ? steps[0].group
-        : '';
-  el.reinforceNextSpeech.textContent = next ? next.speech : reinforceIndex >= 0 ? '' : steps[0] ? steps[0].speech : '';
-  el.reinforceProgress.textContent = `${Math.max(reinforceIndex + 1, 0)} / ${steps.length}`;
-
-  const durationMs = currentReinforceDurationMs();
-  const stepInProgress = reinforceIndex >= 0 && durationMs !== null && currentReinforceElapsedMs() < durationMs;
-  el.reinforceStartBtn.disabled = stepInProgress || steps.length === 0;
-  el.reinforceStartBtn.textContent = reinforceIndex === -1 ? 'スタート' : stepInProgress ? '実施中' : '次へ(スタート)';
-  // 前に戻る/次に進む はロック中でも押せる手動スキップ用ボタンなので、
-  // stepInProgress では無効化しない(戻れない/進めない条件のときだけ無効化)。
-  el.reinforcePrevBtn.disabled = reinforceIndex <= 0;
-  el.reinforceNextBtn.disabled = steps.length === 0;
-  el.reinforcePauseBtn.disabled = reinforceIndex === -1;
-  el.reinforcePauseBtn.textContent = reinforceRunning ? '一時停止' : '再開';
-  updateReinforceTimerDisplay();
-}
-
-function startNextReinforceStep() {
-  const steps = currentReinforceSteps();
-  reinforceIndex += 1;
-  if (reinforceIndex >= steps.length) {
-    reinforceIndex = -1;
-    reinforceRunning = false;
-    reinforceElapsedMs = 0;
-    renderReinforceUI();
-    return;
+  function steps() {
+    return REINFORCE_MENUS[tab.menuKey] || [];
   }
-  reinforceRunning = true;
-  reinforceElapsedMs = 0;
-  reinforceStartEpoch = Date.now();
-  renderReinforceUI();
-  announceCue('reinforce', steps[reinforceIndex].voice);
-}
-
-// 「前に戻る」: ロック中かどうかに関わらず、直前の種目に戻ってやり直せる。
-// 最初の種目(index 0)より前には戻れない。
-function goToPreviousReinforceStep() {
-  if (reinforceIndex <= 0) return;
-  const steps = currentReinforceSteps();
-  reinforceIndex -= 1;
-  reinforceRunning = true;
-  reinforceElapsedMs = 0;
-  reinforceStartEpoch = Date.now();
-  renderReinforceUI();
-  announceCue('reinforce', steps[reinforceIndex].voice);
-}
-
-function toggleReinforcePause() {
-  if (reinforceIndex === -1) return;
-  if (reinforceRunning) {
-    reinforceElapsedMs = currentReinforceElapsedMs();
-    reinforceRunning = false;
-  } else {
-    reinforceStartEpoch = Date.now();
-    reinforceRunning = true;
+  function currentStep() {
+    const s = steps();
+    return index >= 0 && index < s.length ? s[index] : null;
   }
-  renderReinforceUI();
-}
+  function currentDurationMs() {
+    const step = currentStep();
+    return step && step.durationSec ? step.durationSec * 1000 : null;
+  }
+  function currentElapsedMs() {
+    if (!running) return elapsedMs;
+    return elapsedMs + (Date.now() - startEpoch);
+  }
 
-function resetReinforce() {
-  reinforceIndex = -1;
-  reinforceRunning = false;
-  reinforceElapsedMs = 0;
-  renderReinforceUI();
-}
+  function updateTimerDisplay() {
+    const durationMs = currentDurationMs();
+    const rawElapsedMs = index === -1 ? 0 : currentElapsedMs();
+    const shownMs = durationMs !== null ? Math.min(rawElapsedMs, durationMs) : rawElapsedMs;
+    elLocal.timer.textContent = formatStretchTimer(shownMs);
+    elLocal.timer.classList.toggle('is-overtime', durationMs !== null && rawElapsedMs >= durationMs);
+  }
 
-function tickReinforce() {
-  if (reinforceRunning) {
-    const durationMs = currentReinforceDurationMs();
-    if (durationMs !== null && currentReinforceElapsedMs() >= durationMs) {
-      // Auto-stop steps with a fixed duration, same as the stretch timer;
-      // rep/count-based steps (durationMs === null) never hit this — those
-      // just keep counting up until the manager presses "次へ" themselves.
-      reinforceElapsedMs = durationMs;
-      reinforceRunning = false;
-      renderReinforceUI();
-      announceCue('reinforce', '終わり');
-    } else {
-      updateReinforceTimerDisplay();
+  function render() {
+    const s = steps();
+    const current = currentStep();
+    const next = index + 1 < s.length ? s[index + 1] : null;
+
+    elLocal.currentGroup.textContent = current ? current.group : s.length > 0 ? '準備中' : 'このメニューは準備中です';
+    elLocal.currentSpec.textContent = current ? current.spec : '';
+    elLocal.nextGroup.textContent = next ? next.group : index >= 0 ? 'これで終わりです' : s[0] ? s[0].group : '';
+    elLocal.nextSpeech.textContent = next ? next.speech : index >= 0 ? '' : s[0] ? s[0].speech : '';
+    elLocal.progress.textContent = `${Math.max(index + 1, 0)} / ${s.length}`;
+
+    const durationMs = currentDurationMs();
+    const stepInProgress = index >= 0 && durationMs !== null && currentElapsedMs() < durationMs;
+    elLocal.startBtn.disabled = stepInProgress || s.length === 0;
+    elLocal.startBtn.textContent = index === -1 ? 'スタート' : stepInProgress ? '実施中' : '次へ(スタート)';
+    // 前に戻る/次に進む はロック中でも押せる手動スキップ用ボタンなので、
+    // stepInProgress では無効化しない(戻れない/進めない条件のときだけ無効化)。
+    elLocal.prevBtn.disabled = index <= 0;
+    elLocal.nextBtn.disabled = s.length === 0;
+    elLocal.pauseBtn.disabled = index === -1;
+    elLocal.pauseBtn.textContent = running ? '一時停止' : '再開';
+    updateTimerDisplay();
+  }
+
+  function startNext() {
+    const s = steps();
+    index += 1;
+    if (index >= s.length) {
+      index = -1;
+      running = false;
+      elapsedMs = 0;
+      render();
+      return;
     }
+    running = true;
+    elapsedMs = 0;
+    startEpoch = Date.now();
+    render();
+    announceCue(tab.id, s[index].voice);
   }
-  requestAnimationFrame(tickReinforce);
+
+  // 「前に戻る」: ロック中かどうかに関わらず、直前の種目に戻ってやり直せる。
+  // 最初の種目(index 0)より前には戻れない。
+  function goToPrevious() {
+    if (index <= 0) return;
+    const s = steps();
+    index -= 1;
+    running = true;
+    elapsedMs = 0;
+    startEpoch = Date.now();
+    render();
+    announceCue(tab.id, s[index].voice);
+  }
+
+  function togglePause() {
+    if (index === -1) return;
+    if (running) {
+      elapsedMs = currentElapsedMs();
+      running = false;
+    } else {
+      startEpoch = Date.now();
+      running = true;
+    }
+    render();
+  }
+
+  function reset() {
+    index = -1;
+    running = false;
+    elapsedMs = 0;
+    render();
+  }
+
+  function tick() {
+    if (running) {
+      const durationMs = currentDurationMs();
+      if (durationMs !== null && currentElapsedMs() >= durationMs) {
+        // Auto-stop steps with a fixed duration, same as the stretch timer;
+        // rep/count-based steps (durationMs === null) never hit this — those
+        // just keep counting up until the manager presses "次へ" themselves.
+        elapsedMs = durationMs;
+        running = false;
+        render();
+        announceCue(tab.id, '終わり');
+      } else {
+        updateTimerDisplay();
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  elLocal.startBtn.addEventListener('click', startNext);
+  elLocal.prevBtn.addEventListener('click', goToPrevious);
+  elLocal.nextBtn.addEventListener('click', startNext); // same "advance" action, but usable even while locked
+  elLocal.pauseBtn.addEventListener('click', togglePause);
+  elLocal.resetBtn.addEventListener('click', reset);
+  if (elLocal.recordingsToggle) elLocal.recordingsToggle.addEventListener('click', () => openRecordingsModal(tab.id));
+
+  voiceSelectByCategory[tab.id] = elLocal.voiceSelect;
+  registerVoiceToggle(elLocal.voiceToggle);
+
+  render();
+  requestAnimationFrame(tick);
 }
 
-el.reinforceStartBtn.addEventListener('click', startNextReinforceStep);
-el.reinforcePrevBtn.addEventListener('click', goToPreviousReinforceStep);
-el.reinforceNextBtn.addEventListener('click', startNextReinforceStep); // same "advance" action, but usable even while locked
-el.reinforcePauseBtn.addEventListener('click', toggleReinforcePause);
-el.reinforceResetBtn.addEventListener('click', resetReinforce);
-
-renderReinforceMenuPicker();
-renderReinforceUI();
-requestAnimationFrame(tickReinforce);
+REINFORCE_MENU_TABS.forEach(createReinforceTab);
+populateAllVoiceSelects(); // 上で登録された補強の各 <select> にも声の一覧を反映する
 
 /* ---------- TABATA timer ---------- */
 // Unlike the manually-advanced stretch timer, TABATA is meant to run

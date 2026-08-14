@@ -1174,21 +1174,6 @@ html, body {
   color: var(--lcd-ink-dim);
 }
 
-.reinforce-menu-picker {
-  width: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.reinforce-menu-btn {
-  flex: 1 1 auto;
-}
-.reinforce-menu-btn.is-active {
-  background: var(--panel);
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
 .stretch-buttons {
   width: 100%;
   display: flex;

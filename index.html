@@ -27,7 +27,11 @@
       <button type="button" class="tab-btn" data-tab="pace">距離</button>
       <button type="button" class="tab-btn" data-tab="crossing">山試走</button>
       <button type="button" class="tab-btn" data-tab="stretch">ストレッチ</button>
-      <button type="button" class="tab-btn" data-tab="reinforce">補強</button>
+      <button type="button" class="tab-btn" data-tab="reinforceFull">補強フル</button>
+      <button type="button" class="tab-btn" data-tab="reinforceCoreA">補強コアA</button>
+      <button type="button" class="tab-btn" data-tab="reinforceCoreB">補強コアB</button>
+      <button type="button" class="tab-btn" data-tab="reinforceLoop">補強ループ</button>
+      <button type="button" class="tab-btn" data-tab="reinforceLower">補強下肢</button>
       <button type="button" class="tab-btn" data-tab="tabata">TABATA</button>
     </div>
   </nav>
@@ -155,47 +159,14 @@
       </div>
     </div>
 
-    <div id="reinforceTab" class="tab-panel" hidden>
-      <div class="stretch-app">
-        <div class="stretch-header-row">
-          <button type="button" class="btn btn-ghost btn-sm" id="reinforceVoiceToggle">🔊 音声</button>
-          <div class="stretch-progress" id="reinforceProgress">0 / 0</div>
-        </div>
-
-        <label class="stretch-voice-picker">
-          <span>声を選ぶ(選ぶと試し読みします)</span>
-          <select id="reinforceVoiceSelect"></select>
-        </label>
-
-        <button type="button" class="btn btn-ghost btn-sm" id="reinforceRecordingsToggle">🎙 セリフを自分の声で録音する</button>
-
-        <div class="reinforce-menu-picker" id="reinforceMenuPicker"></div>
-
-        <div class="stretch-display-panel">
-          <div class="stretch-timer" id="reinforceTimer">0:00</div>
-          <div class="stretch-current-group" id="reinforceCurrentGroup">準備中</div>
-          <div class="reinforce-current-spec" id="reinforceCurrentSpec"></div>
-        </div>
-
-        <div class="stretch-next">
-          <div class="stretch-next-label">次は</div>
-          <div class="stretch-next-group" id="reinforceNextGroup"></div>
-          <div class="stretch-next-speech" id="reinforceNextSpeech"></div>
-        </div>
-
-        <div class="stretch-buttons">
-          <button type="button" class="btn btn-primary stretch-start-btn" id="reinforceStartBtn">スタート</button>
-          <div class="stretch-buttons-row">
-            <button type="button" class="btn btn-ghost btn-sm" id="reinforcePrevBtn">◀ 前に戻る</button>
-            <button type="button" class="btn btn-ghost btn-sm" id="reinforceNextBtn">次に進む ▶</button>
-          </div>
-          <div class="stretch-buttons-row">
-            <button type="button" class="btn btn-ghost btn-sm" id="reinforcePauseBtn" disabled>一時停止</button>
-            <button type="button" class="btn btn-ghost btn-sm" id="reinforceResetBtn">最初に戻す</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- 補強フル・コアA・コアB・ループ・下肢: それぞれ独立したタブ。
+         中身は app.js の createReinforceTab() が下の
+         reinforceMenuTabTemplate を複製して差し込む。 -->
+    <div id="reinforceFullTab" class="tab-panel" hidden></div>
+    <div id="reinforceCoreATab" class="tab-panel" hidden></div>
+    <div id="reinforceCoreBTab" class="tab-panel" hidden></div>
+    <div id="reinforceLoopTab" class="tab-panel" hidden></div>
+    <div id="reinforceLowerTab" class="tab-panel" hidden></div>
 
     <div id="tabataTab" class="tab-panel" hidden>
       <div class="tabata-app">
@@ -304,6 +275,49 @@
         <button type="button" class="btn btn-ghost btn-sm recording-record-btn">🔴 録音</button>
         <button type="button" class="btn btn-ghost btn-sm recording-play-btn" disabled>▶️ 再生</button>
         <button type="button" class="btn btn-ghost btn-sm recording-delete-btn" disabled>🗑 削除</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- 補強フル・コアA・コアB・ループ・下肢の各タブ共通の中身。
+       app.js の createReinforceTab() がタブごとに複製して差し込む
+       (要素はすべて class で参照するので id は付けない)。 -->
+  <template id="reinforceMenuTabTemplate">
+    <div class="stretch-app">
+      <div class="stretch-header-row">
+        <button type="button" class="btn btn-ghost btn-sm reinforce-voice-toggle">🔊 音声</button>
+        <div class="stretch-progress reinforce-progress">0 / 0</div>
+      </div>
+
+      <label class="stretch-voice-picker">
+        <span>声を選ぶ(選ぶと試し読みします)</span>
+        <select class="reinforce-voice-select"></select>
+      </label>
+
+      <button type="button" class="btn btn-ghost btn-sm reinforce-recordings-toggle">🎙 セリフを自分の声で録音する</button>
+
+      <div class="stretch-display-panel">
+        <div class="stretch-timer reinforce-timer">0:00</div>
+        <div class="stretch-current-group reinforce-current-group">準備中</div>
+        <div class="reinforce-current-spec"></div>
+      </div>
+
+      <div class="stretch-next">
+        <div class="stretch-next-label">次は</div>
+        <div class="stretch-next-group reinforce-next-group"></div>
+        <div class="stretch-next-speech reinforce-next-speech"></div>
+      </div>
+
+      <div class="stretch-buttons">
+        <button type="button" class="btn btn-primary stretch-start-btn reinforce-start-btn">スタート</button>
+        <div class="stretch-buttons-row">
+          <button type="button" class="btn btn-ghost btn-sm reinforce-prev-btn">◀ 前に戻る</button>
+          <button type="button" class="btn btn-ghost btn-sm reinforce-next-btn">次に進む ▶</button>
+        </div>
+        <div class="stretch-buttons-row">
+          <button type="button" class="btn btn-ghost btn-sm reinforce-pause-btn" disabled>一時停止</button>
+          <button type="button" class="btn btn-ghost btn-sm reinforce-reset-btn">最初に戻す</button>
+        </div>
       </div>
     </div>
   </template>
