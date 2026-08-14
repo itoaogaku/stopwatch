@@ -80,6 +80,7 @@ const el = {
   rollcallMemberTemplate: document.getElementById('rollcallMemberTemplate'),
   rollcallRegisterModal: document.getElementById('rollcallRegisterModal'),
   rollcallRegisterCloseBtn: document.getElementById('rollcallRegisterCloseBtn'),
+  rollcallShareBtn: document.getElementById('rollcallShareBtn'),
   rollcallTagManageList: document.getElementById('rollcallTagManageList'),
   rollcallNewTagName: document.getElementById('rollcallNewTagName'),
   rollcallNewTagBtn: document.getElementById('rollcallNewTagBtn'),
@@ -3389,6 +3390,19 @@ function setRollcallRegisterModalOpen(open) {
 }
 el.rollcallRegisterToggle.addEventListener('click', () => setRollcallRegisterModalOpen(true));
 el.rollcallRegisterCloseBtn.addEventListener('click', () => setRollcallRegisterModalOpen(false));
+
+// 通常は編集操作のたびに自動でアップロードされるが、それとは別に「この
+// 端末が今持っている名簿をそのままチームに共有し直したい」場合(他の
+// 端末がまだ古い名簿のままの時など)のための手動ボタン。
+el.rollcallShareBtn.addEventListener('click', async () => {
+  const token = await requireRollcallEditToken();
+  if (!token) {
+    alert('チームへの共有には合言葉が必要です。');
+    return;
+  }
+  const ok = await uploadRollcallRosterToServer();
+  alert(ok ? 'この端末の名簿をチームに共有しました。' : 'チームへの共有に失敗しました。');
+});
 
 function buildRollcallRegisterRow(member) {
   const node = el.rollcallRegisterRowTemplate.content.firstElementChild.cloneNode(true);

@@ -1471,6 +1471,10 @@ html, body {
   padding: 8px;
 }
 
+#rollcallShareBtn {
+  width: 100%;
+}
+
 .rollcall-tag-manage {
   display: flex;
   flex-direction: column;
