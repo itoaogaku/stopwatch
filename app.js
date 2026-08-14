@@ -1257,6 +1257,14 @@ let stretchStartEpoch = 0; // epoch when the current running span began
 // フラグで区別する。一時停止と紛らわしくならないよう「一時停止」ボタンも
 // 封じる)。
 let stretchAwaitingVoice = false;
+// 30秒後の「終わり」を、セリフ再生から一切スキマなく繋がる<audio>チェーン
+// (セリフ→無音→終わり)で自動再生している間、進行中のchainの終わり側
+// <audio>要素への参照(一時停止/再開/キャンセルの対象)。この方式を使って
+// いない(録音が揃っていない・音声合成を使っている)場合は null のまま。
+let stretchAutoAnnounceAudio = null;
+// 今の種目が上記の<audio>チェーン方式で「終わり」を鳴らす予定かどうか。
+// true の間は tickStretch 側のベストエフォート呼び出しを重複させない。
+let stretchUsingAudioChain = false;
 
 // Reads each step's cue aloud (via speechSynthesis or a recording — see
 // below) so the manager doesn't have to read it themselves. Shared between
@@ -2151,60 +2159,61 @@ function announceCue(category, text) {
 }
 
 // 「終わり」のように、ボタン操作を伴わずタイマーから自動で鳴らす必要が
-// ある合図専用の仕組み。iOS Safariはボタン操作を伴わない音声再生を仕様上
-// ブロックするが、Web Audio API の AudioContext は一度でもユーザー操作
-// 中に resume() されていれば、以降はタイマー等の非操作タイミングから
-// 鳴らしても再生できる(ページを閉じるまでアンロック状態が続く)。この
-// 性質を利用し、録音済み音声を使っている場合だけこの経路で確実に鳴らす
-// (音声合成にはこの仕組みが効かないため、その場合や該当の録音が無い
-// 場合は今まで通りのベストエフォート(announceCue)にフォールバックする)。
-let sharedAudioContext = null;
-function getSharedAudioContext() {
-  const Ctor = window.AudioContext || window.webkitAudioContext;
-  if (!Ctor) return null;
-  if (!sharedAudioContext) sharedAudioContext = new Ctor();
-  return sharedAudioContext;
+// ある合図を確実に鳴らすための仕組み。iOS Safariはボタン操作を伴わない
+// 新規の音声再生開始を仕様上ブロックする。共有録音(チーム共有サーバー)
+// はCORS未対応のためWeb Audio APIで生データを読み込めず、AudioContextの
+// アンロックだけでは解決できない。そこで、ボタン操作(セリフ再生開始)
+// から一切スキマなく繋がる1本の <audio> 再生の中で「セリフ→(30秒などの
+// 種目の長さぶんの)無音→終わり」と鳴らす。<audio>要素はそもそも
+// 再生自体にCORSは不要なので(fetch()で生データを読む場合とは違う)、
+// この方式なら共有録音でも問題なく再生できる。
+//
+// 録音済み音声を使っていて、種目本来のセリフと「終わり」の両方の録音が
+// 揃っている場合だけこの方式を使う。音声合成を使っている場合や、いずれ
+// かの録音が無い場合は、今まで通りのベストエフォート(announceCue)に
+// フォールバックする。
+
+const silentWavDataUriCache = new Map(); // durationMs -> data URI
+function silentWavDataUri(durationMs, sampleRate = 8000) {
+  if (silentWavDataUriCache.has(durationMs)) return silentWavDataUriCache.get(durationMs);
+  const numSamples = Math.max(1, Math.round((durationMs / 1000) * sampleRate));
+  const dataSize = numSamples; // 8-bit PCM mono, 1 byte/sample
+  const bytes = new Uint8Array(44 + dataSize);
+  const view = new DataView(bytes.buffer);
+  const writeAscii = (offset, str) => {
+    for (let i = 0; i < str.length; i++) bytes[offset + i] = str.charCodeAt(i);
+  };
+  writeAscii(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeAscii(8, 'WAVE');
+  writeAscii(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate, true);
+  view.setUint16(32, 1, true);
+  view.setUint16(34, 8, true);
+  writeAscii(36, 'data');
+  view.setUint32(40, dataSize, true);
+  bytes.fill(128, 44); // 8-bit unsigned PCMの無音レベル
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  const dataUri = `data:audio/wav;base64,${btoa(binary)}`;
+  silentWavDataUriCache.set(durationMs, dataUri);
+  return dataUri;
 }
 
-// 実際のボタン操作(ユーザー操作)の最中に必ず呼ぶことで、AudioContext を
-// アンロックしておく。
-function unlockSharedAudioContext() {
-  const ctx = getSharedAudioContext();
-  if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
-}
-
-async function fetchRecordedCueBuffer(category, text) {
+// 指定の (category, text) について、この端末またはチーム共有の録音が
+// あればその再生用URL(またはBlob URL)を返す。無ければ null。
+function recordedCueAudioSrc(category, text) {
   const selectedVoiceURI = selectedVoiceURIByCategory[category];
   if (!isRecordedVoiceValue(selectedVoiceURI)) return null;
   const setName = setNameFromVoiceValue(selectedVoiceURI);
   const key = mapKey(category, setName);
   const blob = nestedGet(recordingsMap, key, text);
-  const url = blob ? null : nestedGet(sharedRecordingsMap, key, text);
-  if (!blob && !url) return null;
-  const ctx = getSharedAudioContext();
-  if (!ctx) return null;
-  try {
-    const arrayBuffer = blob ? await blob.arrayBuffer() : await (await fetch(url)).arrayBuffer();
-    return await ctx.decodeAudioData(arrayBuffer);
-  } catch {
-    return null;
-  }
-}
-
-async function announceAutoCue(category, text) {
-  if (!voiceEnabled) return;
-  const ctx = getSharedAudioContext();
-  if (ctx && ctx.state === 'running') {
-    const buffer = await fetchRecordedCueBuffer(category, text);
-    if (buffer) {
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(ctx.destination);
-      source.start();
-      return;
-    }
-  }
-  announceCue(category, text);
+  if (blob) return URL.createObjectURL(blob);
+  return nestedGet(sharedRecordingsMap, key, text) || null;
 }
 
 populateRecordingSetSelect();
@@ -2296,18 +2305,77 @@ function renderStretchUI() {
   updateStretchTimerDisplay();
 }
 
+// 進行中の「終わり」自動再生チェーンがあれば止める(種目を切り替えた/
+// リセットした時に、古いチェーンが後から鳴ってしまわないようにする)。
+function stopStretchAutoAnnounce() {
+  if (stretchAutoAnnounceAudio) {
+    stretchAutoAnnounceAudio.pause();
+    stretchAutoAnnounceAudio = null;
+  }
+  stretchUsingAudioChain = false;
+}
+
 // 種目を選び直す共通処理(「次へ」「前に戻る」共通)。iOS Safariはボタン
 // 操作を伴わない(タイマーからの自動)音声合成を仕様上ブロックしており
 // JS側では回避できないため、必ずこの実際のボタン操作に紐づけてセリフを
 // 読み上げ、それが読み終わってから初めてその種目のタイマーを開始する。
+//
+// 「終わり」については、録音済み音声(この端末またはチーム共有)で
+// セリフ・終わりの両方が揃っている場合、セリフ再生からスキマなく繋がる
+// 1本の<audio>再生チェーン(セリフ→30秒の無音→終わり)を、このボタン
+// 操作をきっかけに今すぐ開始しておく。<audio>要素の再生自体にはCORSが
+// 不要なため、チーム共有録音(CORS未対応のXserver)でも問題なく鳴らせる。
+// 音声合成を使っている場合や録音が揃っていない場合は、この方式が使えない
+// ため、これまで通りtickStretch側のベストエフォート呼び出しに任せる。
 function enterStretchStep(index) {
-  unlockSharedAudioContext(); // この実際のボタン操作で、後で「終わり」を自動で鳴らすための準備をしておく
+  stopStretchAutoAnnounce();
   stretchIndex = index;
   stretchElapsedMs = 0;
   stretchRunning = false;
   stretchAwaitingVoice = true;
   renderStretchUI();
-  announceCue('stretch', STRETCH_STEPS[index].voice).then(() => {
+
+  const step = STRETCH_STEPS[index];
+  const cueSrc = voiceEnabled ? recordedCueAudioSrc('stretch', step.voice) : null;
+  const endSrc = voiceEnabled ? recordedCueAudioSrc('stretch', '終わり') : null;
+
+  if (cueSrc && endSrc) {
+    stretchUsingAudioChain = true;
+    stopAnyPlayback();
+    const cueAudio = new Audio(cueSrc);
+    currentPlaybackAudio = cueAudio;
+    const startTimer = () => {
+      if (stretchIndex !== index || !stretchAwaitingVoice) return;
+      stretchAwaitingVoice = false;
+      stretchRunning = true;
+      stretchStartEpoch = Date.now();
+      renderStretchUI();
+
+      const silenceAudio = new Audio(silentWavDataUri(STRETCH_STEP_MS));
+      stretchAutoAnnounceAudio = silenceAudio;
+      silenceAudio.addEventListener('ended', () => {
+        if (stretchAutoAnnounceAudio !== silenceAudio) return; // キャンセル済み
+        const endAudio = new Audio(endSrc);
+        stretchAutoAnnounceAudio = endAudio;
+        endAudio.play().catch(() => {});
+      });
+      silenceAudio.play().catch(() => {});
+    };
+    cueAudio.addEventListener('ended', startTimer);
+    cueAudio.addEventListener('error', () => {
+      // 再生できなかった場合はベストエフォート方式に切り替える。
+      stretchUsingAudioChain = false;
+      startTimer();
+    });
+    cueAudio.play().catch(() => {
+      stretchUsingAudioChain = false;
+      startTimer();
+    });
+    return;
+  }
+
+  stretchUsingAudioChain = false;
+  announceCue('stretch', step.voice).then(() => {
     // 読み上げを待っている間に別の操作で状態が変わっていたら何もしない。
     if (stretchIndex !== index || !stretchAwaitingVoice) return;
     stretchAwaitingVoice = false;
@@ -2320,6 +2388,7 @@ function enterStretchStep(index) {
 function startNextStretchStep() {
   const nextIndex = stretchIndex + 1;
   if (nextIndex >= STRETCH_STEPS.length) {
+    stopStretchAutoAnnounce();
     stretchIndex = -1;
     stretchRunning = false;
     stretchAwaitingVoice = false;
@@ -2344,14 +2413,17 @@ function toggleStretchPause() {
   if (stretchRunning) {
     stretchElapsedMs = currentStretchElapsedMs();
     stretchRunning = false;
+    if (stretchAutoAnnounceAudio) stretchAutoAnnounceAudio.pause();
   } else {
     stretchStartEpoch = Date.now();
     stretchRunning = true;
+    if (stretchAutoAnnounceAudio) stretchAutoAnnounceAudio.play().catch(() => {});
   }
   renderStretchUI();
 }
 
 function resetStretch() {
+  stopStretchAutoAnnounce();
   stretchIndex = -1;
   stretchRunning = false;
   stretchAwaitingVoice = false;
@@ -2366,11 +2438,14 @@ function tickStretch() {
       stretchElapsedMs = STRETCH_STEP_MS;
       stretchRunning = false;
       renderStretchUI();
-      // 録音済み音声を使っている場合は AudioContext 経由で確実に鳴らす。
-      // 音声合成を選んでいる場合はこの仕組みが効かないため、その場合は
-      // 引き続きベストエフォート(iOS Safariでは鳴らないことがある。各
-      // 種目のセリフ自体は次へボタンを押した時に確実に読み上げられる)。
-      announceAutoCue('stretch', '終わり');
+      // 録音済み音声(セリフ・終わりの両方)が揃っている場合は、セリフ再生
+      // から繋がる<audio>チェーンが既に「終わり」の自動再生を予約済み
+      // なので、ここでは重複させない。それ以外の場合はベストエフォートで
+      // 鳴らす(音声合成の場合、iOS Safariでは鳴らないことがある。各種目
+      // のセリフ自体は次へボタンを押した時に確実に読み上げられる)。
+      if (!stretchUsingAudioChain) {
+        announceCue('stretch', '終わり');
+      }
     } else {
       updateStretchTimerDisplay();
     }
