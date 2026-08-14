@@ -1352,21 +1352,21 @@ html, body {
   gap: 6px;
 }
 
-/* タグの有無でボタンの高さが変わらないよう、名前とタグは常に1行に横並び
-   にする(タグは「ボタンに表示」をONにしたものだけ、1〜2文字の略称で
-   出す。何も無ければ空のままで高さは変わらない)。 */
+/* タグの有無でボタンの高さが変わらないよう、バッジ欄は常に2段ぶんの
+   高さを確保しておく(中身が0〜1個の時は空の段をnbspで埋める)。これで
+   バッジが0個・1個・2個のどのボタンも高さが揃う。 */
 .rollcall-member {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 4px;
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 10px 8px;
+  padding: 8px;
   color: var(--text);
   font-size: 13px;
   font-weight: 700;
@@ -1396,12 +1396,20 @@ html, body {
 }
 .rollcall-member-tags {
   flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1px;
+}
+.rollcall-member-tag-line {
   font-size: 10px;
   font-weight: 700;
+  line-height: 1.3;
   color: var(--accent);
   white-space: nowrap;
 }
-.rollcall-member.is-checked .rollcall-member-tags {
+.rollcall-member.is-checked .rollcall-member-tag-line {
   color: var(--text-dim);
 }
 

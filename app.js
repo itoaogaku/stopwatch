@@ -3138,11 +3138,16 @@ function renderRollcallProgress(visibleMembers) {
 
 // 名前ボタンの高さを揃えるため、タグは全部ではなく「ボタンに表示」を
 // ONにしたものだけを、1〜2文字に短くまとめて表示する。
-function rollcallBadgeTextForMember(member) {
+// バッジ表示用の枠は常に2段固定(中身が0〜1個でも2段ぶんの高さを確保する
+// ことで、ボタンの高さが誰であっても揃うようにする)。3個以上ONのタグに
+// 一致する場合も、2段に収まる分(先頭2つ)だけ表示する。
+const ROLLCALL_BADGE_LINES = 2;
+
+function rollcallBadgeLabelsForMember(member) {
   return rollcallTags
     .filter((tag) => tag.showBadge && member.tags.includes(tag.name))
     .map((tag) => tag.name.slice(0, 2))
-    .join('/');
+    .slice(0, ROLLCALL_BADGE_LINES);
 }
 
 function buildRollcallMemberButton(member) {
@@ -3150,7 +3155,11 @@ function buildRollcallMemberButton(member) {
   node.dataset.id = member.id;
   node.classList.toggle('is-checked', member.checked);
   node.querySelector('.rollcall-member-name').textContent = member.name;
-  node.querySelector('.rollcall-member-tags').textContent = rollcallBadgeTextForMember(member);
+  const labels = rollcallBadgeLabelsForMember(member);
+  node.querySelectorAll('.rollcall-member-tag-line').forEach((lineEl, i) => {
+    // 空の段も見えない文字(nbsp)で埋めて、常に2段ぶんの高さを保つ。
+    lineEl.textContent = labels[i] || ' ';
+  });
   node.addEventListener('click', () => toggleRollcallChecked(member.id));
   return node;
 }
