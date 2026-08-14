@@ -2958,9 +2958,11 @@ function saveRollcallMembers() {
 
 /* ----- タグの管理(マスターリスト) -----
    タグは自由入力ではなく、ここで登録したタグの中から選手ごとにチェック
-   ボックスで選ぶ方式。既存の選手データ(前バージョンで自由入力していた分)
-   に登録済みでないタグが付いていても消えないよう、マスターリストの初期値
-   には選手データに既に使われているタグも合わせて含めておく。 */
+   ボックスで選ぶ方式。各タグは { name, showBadge } の形で持ち、showBadge
+   がtrueのタグだけ点呼タブ本体の名前ボタンに小さな略称バッジとして表示
+   される(全部のタグを表示すると、タグの有無でボタンの高さがバラバラに
+   なって使いにくいため)。新しく追加したタグは既定でOFFなので、今後
+   タグを増やしても名前ボタンの見た目が勝手に崩れることはない。 */
 const ROLLCALL_TAGS_STORAGE_KEY = 'stopwatch_rollcall_tags_v1';
 const ROLLCALL_DEFAULT_TAGS = ['故障者', 'イレギュラー'];
 
@@ -2975,12 +2977,18 @@ function loadRollcallTags() {
     const raw = localStorage.getItem(ROLLCALL_TAGS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        // 旧バージョン(タグ名の文字列だけの配列)からの移行。
+        return parsed.map((t) => (typeof t === 'string' ? { name: t, showBadge: false } : t));
+      }
     }
   } catch (e) {
     /* 壊れた保存データは無視する */
   }
-  return Array.from(new Set([...ROLLCALL_DEFAULT_TAGS, ...tagsUsedByMembers()]));
+  return Array.from(new Set([...ROLLCALL_DEFAULT_TAGS, ...tagsUsedByMembers()])).map((name) => ({
+    name,
+    showBadge: false,
+  }));
 }
 
 let rollcallTags = loadRollcallTags();
@@ -2996,17 +3004,17 @@ function saveRollcallTags() {
 function addRollcallTag(name) {
   const trimmed = name.trim();
   if (!trimmed) return;
-  if (rollcallTags.includes(trimmed)) {
+  if (rollcallTags.some((t) => t.name === trimmed)) {
     alert('そのタグは既に登録されています。');
     return;
   }
-  rollcallTags.push(trimmed);
+  rollcallTags.push({ name: trimmed, showBadge: false });
   saveRollcallTags();
 }
 
 function deleteRollcallTag(name) {
   if (!confirm(`タグ「${name}」を削除しますか?(このタグが付いている全選手からも外れます)`)) return;
-  rollcallTags = rollcallTags.filter((t) => t !== name);
+  rollcallTags = rollcallTags.filter((t) => t.name !== name);
   rollcallMembers.forEach((m) => {
     m.tags = m.tags.filter((t) => t !== name);
   });
@@ -3014,6 +3022,14 @@ function deleteRollcallTag(name) {
   saveRollcallMembers();
   renderRollcallList();
   renderRollcallRegisterView();
+}
+
+function setRollcallTagShowBadge(name, showBadge) {
+  const tag = rollcallTags.find((t) => t.name === name);
+  if (!tag) return;
+  tag.showBadge = showBadge;
+  saveRollcallTags();
+  renderRollcallList();
 }
 
 function renderRollcallTagManageList() {
@@ -3029,15 +3045,27 @@ function renderRollcallTagManageList() {
     const chip = document.createElement('span');
     chip.className = 'rollcall-tag-chip';
     const label = document.createElement('span');
-    label.textContent = tag;
+    label.textContent = tag.name;
     chip.appendChild(label);
+
+    const badgeToggle = document.createElement('label');
+    badgeToggle.className = 'rollcall-tag-badge-toggle';
+    const badgeCheckbox = document.createElement('input');
+    badgeCheckbox.type = 'checkbox';
+    badgeCheckbox.checked = tag.showBadge;
+    badgeCheckbox.addEventListener('change', () => setRollcallTagShowBadge(tag.name, badgeCheckbox.checked));
+    badgeToggle.appendChild(badgeCheckbox);
+    badgeToggle.appendChild(document.createTextNode('ボタンに表示'));
+    chip.appendChild(badgeToggle);
+
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'rollcall-tag-chip-delete';
     deleteBtn.textContent = '×';
-    deleteBtn.title = `「${tag}」を削除`;
-    deleteBtn.addEventListener('click', () => deleteRollcallTag(tag));
+    deleteBtn.title = `「${tag.name}」を削除`;
+    deleteBtn.addEventListener('click', () => deleteRollcallTag(tag.name));
     chip.appendChild(deleteBtn);
+
     el.rollcallTagManageList.appendChild(chip);
   });
 }
@@ -3058,11 +3086,11 @@ function renderTagCheckboxes(container, selectedTags) {
     label.className = 'rollcall-tag-checkbox';
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
-    checkbox.value = tag;
-    checkbox.checked = selectedTags.includes(tag);
+    checkbox.value = tag.name;
+    checkbox.checked = selectedTags.includes(tag.name);
     label.appendChild(checkbox);
     const span = document.createElement('span');
-    span.textContent = tag;
+    span.textContent = tag.name;
     label.appendChild(span);
     container.appendChild(label);
   });
@@ -3093,12 +3121,12 @@ function renderTagFilterOptions(selectEl) {
   selectEl.appendChild(allOption);
   rollcallTags.forEach((tag) => {
     const opt = document.createElement('option');
-    opt.value = tag;
-    opt.textContent = tag;
+    opt.value = tag.name;
+    opt.textContent = tag.name;
     selectEl.appendChild(opt);
   });
   // 選んでいたタグがまだ存在するなら維持する(無くなっていたら「すべて」に戻る)。
-  selectEl.value = rollcallTags.includes(currentValue) ? currentValue : '';
+  selectEl.value = rollcallTags.some((t) => t.name === currentValue) ? currentValue : '';
 }
 
 /* ----- 点呼タブ本体: 学年ごとに縦並び、押すと一番下にスライドする ----- */
@@ -3108,12 +3136,21 @@ function renderRollcallProgress(visibleMembers) {
   el.rollcallProgress.textContent = `点呼 ${checkedCount} / ${total}`;
 }
 
+// 名前ボタンの高さを揃えるため、タグは全部ではなく「ボタンに表示」を
+// ONにしたものだけを、1〜2文字に短くまとめて表示する。
+function rollcallBadgeTextForMember(member) {
+  return rollcallTags
+    .filter((tag) => tag.showBadge && member.tags.includes(tag.name))
+    .map((tag) => tag.name.slice(0, 2))
+    .join('/');
+}
+
 function buildRollcallMemberButton(member) {
   const node = el.rollcallMemberTemplate.content.firstElementChild.cloneNode(true);
   node.dataset.id = member.id;
   node.classList.toggle('is-checked', member.checked);
   node.querySelector('.rollcall-member-name').textContent = member.name;
-  node.querySelector('.rollcall-member-tags').textContent = member.tags.join(' / ');
+  node.querySelector('.rollcall-member-tags').textContent = rollcallBadgeTextForMember(member);
   node.addEventListener('click', () => toggleRollcallChecked(member.id));
   return node;
 }

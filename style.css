@@ -1352,20 +1352,21 @@ html, body {
   gap: 6px;
 }
 
-/* 4列だと1列あたりの幅が狭いので、名前とタグは横並びではなく縦積みに
-   している(横並びだと折り返しや見切れが目立つため)。 */
+/* タグの有無でボタンの高さが変わらないよう、名前とタグは常に1行に横並び
+   にする(タグは「ボタンに表示」をONにしたものだけ、1〜2文字の略称で
+   出す。何も無ければ空のままで高さは変わらない)。 */
 .rollcall-member {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 8px 8px;
+  padding: 10px 8px;
   color: var(--text);
   font-size: 13px;
   font-weight: 700;
@@ -1375,7 +1376,7 @@ html, body {
   transition: transform 0.05s ease, background 0.15s ease, opacity 0.2s ease, filter 0.05s ease;
 }
 .rollcall-member-name {
-  width: 100%;
+  flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1394,13 +1395,11 @@ html, body {
   opacity: 0.6;
 }
 .rollcall-member-tags {
-  width: 100%;
+  flex: 0 0 auto;
   font-size: 10px;
   font-weight: 700;
   color: var(--accent);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .rollcall-member.is-checked .rollcall-member-tags {
   color: var(--text-dim);
@@ -1499,6 +1498,20 @@ html, body {
   font-size: 15px;
   line-height: 1;
   padding: 2px 4px;
+}
+.rollcall-tag-badge-toggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+  white-space: nowrap;
+  padding-left: 4px;
+  border-left: 1px solid var(--border);
+}
+.rollcall-tag-badge-toggle input {
+  accent-color: var(--accent);
 }
 .rollcall-tag-empty-hint {
   font-size: 11px;
