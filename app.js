@@ -3001,19 +3001,120 @@ function saveRollcallTags() {
   }
 }
 
-function addRollcallTag(name) {
-  const trimmed = name.trim();
-  if (!trimmed) return;
-  if (rollcallTags.some((t) => t.name === trimmed)) {
-    alert('そのタグは既に登録されています。');
-    return;
+/* ----- 名簿(氏名・学年・タグ)のチーム共有 -----
+   名簿の登録・編集データ(このタブで管理する氏名・学年・タグ)は、録音の
+   チーム共有と同じXserverにアップロードしてチームで共有する(itonomaki
+   アプリの /api/rollcall-roster、認証は録音共有と同じ合言葉
+   SHARED_AUDIO_TOKEN_KEY をそのまま流用)。一方、実際に点呼した/してい
+   ないのチェック状態(checked / checkedSeq)は各端末だけのローカル情報の
+   ままにする(この端末で今まさに点呼中の状態を他の端末の値で上書きしな
+   いよう、共有データを取り込む時はチェック状態だけ元のものを残す)。 */
+const ROLLCALL_ROSTER_API_URL = 'https://itonomaki-55ve.vercel.app/api/rollcall-roster';
+
+function rollcallRosterPayload() {
+  return {
+    members: rollcallMembers.map((m) => ({ id: m.id, name: m.name, grade: m.grade, tags: m.tags, sortIndex: m.sortIndex })),
+    tags: rollcallTags,
+  };
+}
+
+// サーバーから取得した共有名簿を、この端末の点呼チェック状態はそのまま
+// 保ちつつ取り込む(id が一致する選手はchecked/checkedSeqを引き継ぐ)。
+function applySharedRollcallRoster(shared) {
+  if (!shared || !Array.isArray(shared.members)) return;
+  const localById = new Map(rollcallMembers.map((m) => [m.id, m]));
+  rollcallMembers = shared.members.map((m) => {
+    const local = localById.get(m.id);
+    return {
+      id: m.id,
+      name: m.name,
+      grade: m.grade,
+      tags: Array.isArray(m.tags) ? m.tags : [],
+      sortIndex: typeof m.sortIndex === 'number' ? m.sortIndex : 0,
+      checked: local ? local.checked : false,
+      checkedSeq: local ? local.checkedSeq : 0,
+    };
+  });
+  if (Array.isArray(shared.tags)) {
+    rollcallTags = shared.tags.map((t) => (typeof t === 'string' ? { name: t, showBadge: false } : t));
   }
-  rollcallTags.push({ name: trimmed, showBadge: false });
+  rollcallNextCheckedSeq = 1 + rollcallMembers.reduce((max, m) => Math.max(max, m.checkedSeq || 0), 0);
+  rollcallNextSortIndex = 1 + rollcallMembers.reduce((max, m) => Math.max(max, m.sortIndex || 0), -1);
+  saveRollcallMembers();
   saveRollcallTags();
 }
 
-function deleteRollcallTag(name) {
+async function loadSharedRollcallRoster() {
+  try {
+    const res = await fetch(ROLLCALL_ROSTER_API_URL, { cache: 'no-store' });
+    if (!res.ok) return;
+    const body = await res.json();
+    if (body && body.data) applySharedRollcallRoster(body.data);
+  } catch {
+    // オフライン、またはサーバー未応答 — この端末のローカルデータのまま使う。
+  }
+}
+
+// 名簿の追加・編集・削除・タグ管理は全て合言葉が無いとできない(録音の
+// チーム共有と同じ合言葉)。合言葉が得られなければ null を返し、呼び出し
+// 側は編集そのものを行わない。
+async function requireRollcallEditToken() {
+  let token = getStoredAudioToken();
+  if (!token) token = promptForAudioToken();
+  return token || null;
+}
+
+async function uploadRollcallRosterToServer(allowRetry = true) {
+  let token = getStoredAudioToken();
+  if (!token) token = promptForAudioToken();
+  if (!token) return false;
+
+  try {
+    const res = await fetch(ROLLCALL_ROSTER_API_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(rollcallRosterPayload()),
+    });
+    if (res.status === 401) {
+      try {
+        localStorage.removeItem(SHARED_AUDIO_TOKEN_KEY);
+      } catch {
+        /* ignore */
+      }
+      if (!allowRetry) return false;
+      alert('合言葉が正しくありませんでした。もう一度入力してください。');
+      return uploadRollcallRosterToServer(false);
+    }
+    return res.ok;
+  } catch {
+    return false; // オフライン等 — この端末には保存済みなのでそのまま続行
+  }
+}
+
+async function addRollcallTag(name) {
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+  if (rollcallTags.some((t) => t.name === trimmed)) {
+    alert('そのタグは既に登録されています。');
+    return false;
+  }
+  const token = await requireRollcallEditToken();
+  if (!token) {
+    alert('名簿の編集には合言葉が必要です。');
+    return false;
+  }
+  rollcallTags.push({ name: trimmed, showBadge: false });
+  saveRollcallTags();
+  return true;
+}
+
+async function deleteRollcallTag(name) {
   if (!confirm(`タグ「${name}」を削除しますか?(このタグが付いている全選手からも外れます)`)) return;
+  const token = await requireRollcallEditToken();
+  if (!token) {
+    alert('名簿の編集には合言葉が必要です。');
+    return;
+  }
   rollcallTags = rollcallTags.filter((t) => t.name !== name);
   rollcallMembers.forEach((m) => {
     m.tags = m.tags.filter((t) => t !== name);
@@ -3022,14 +3123,26 @@ function deleteRollcallTag(name) {
   saveRollcallMembers();
   renderRollcallList();
   renderRollcallRegisterView();
+  if (!(await uploadRollcallRosterToServer())) {
+    alert('チームへの共有に失敗しました(この端末には保存されています)。');
+  }
 }
 
-function setRollcallTagShowBadge(name, showBadge) {
+async function setRollcallTagShowBadge(name, showBadge, checkboxEl) {
+  const token = await requireRollcallEditToken();
+  if (!token) {
+    alert('名簿の編集には合言葉が必要です。');
+    if (checkboxEl) checkboxEl.checked = !showBadge; // 変更を取り消して表示を戻す
+    return;
+  }
   const tag = rollcallTags.find((t) => t.name === name);
   if (!tag) return;
   tag.showBadge = showBadge;
   saveRollcallTags();
   renderRollcallList();
+  if (!(await uploadRollcallRosterToServer())) {
+    alert('チームへの共有に失敗しました(この端末には保存されています)。');
+  }
 }
 
 function renderRollcallTagManageList() {
@@ -3053,7 +3166,7 @@ function renderRollcallTagManageList() {
     const badgeCheckbox = document.createElement('input');
     badgeCheckbox.type = 'checkbox';
     badgeCheckbox.checked = tag.showBadge;
-    badgeCheckbox.addEventListener('change', () => setRollcallTagShowBadge(tag.name, badgeCheckbox.checked));
+    badgeCheckbox.addEventListener('change', () => setRollcallTagShowBadge(tag.name, badgeCheckbox.checked, badgeCheckbox));
     badgeToggle.appendChild(badgeCheckbox);
     badgeToggle.appendChild(document.createTextNode('ボタンに表示'));
     chip.appendChild(badgeToggle);
@@ -3100,13 +3213,17 @@ function readCheckedTags(container) {
   return Array.from(container.querySelectorAll('input:checked')).map((cb) => cb.value);
 }
 
-el.rollcallNewTagBtn.addEventListener('click', () => {
-  addRollcallTag(el.rollcallNewTagName.value);
+el.rollcallNewTagBtn.addEventListener('click', async () => {
+  const added = await addRollcallTag(el.rollcallNewTagName.value);
+  if (!added) return;
   el.rollcallNewTagName.value = '';
   renderRollcallTagManageList();
   renderTagFilterOptions(el.rollcallTagFilter);
   renderTagCheckboxes(el.rollcallAddTagCheckboxes, []);
   renderRollcallList();
+  if (!(await uploadRollcallRosterToServer())) {
+    alert('チームへの共有に失敗しました(この端末には保存されています)。');
+  }
 });
 
 // タグ絞り込み用<select>の選択肢を、登録済みタグ一覧(rollcallTags)から
@@ -3261,6 +3378,13 @@ function setRollcallRegisterModalOpen(open) {
     renderRollcallTagManageList();
     renderTagCheckboxes(el.rollcallAddTagCheckboxes, []);
     renderRollcallRegisterView();
+    // 開くたびに最新の共有名簿を読み直す(他の端末で編集された分を拾う)。
+    loadSharedRollcallRoster().then(() => {
+      renderRollcallTagManageList();
+      renderTagCheckboxes(el.rollcallAddTagCheckboxes, []);
+      renderRollcallRegisterView();
+      renderRollcallList();
+    });
   }
 }
 el.rollcallRegisterToggle.addEventListener('click', () => setRollcallRegisterModalOpen(true));
@@ -3285,10 +3409,15 @@ function buildRollcallRegisterRow(member) {
     viewEl.hidden = false;
     editEl.hidden = true;
   });
-  node.querySelector('.rollcall-save-btn').addEventListener('click', () => {
+  node.querySelector('.rollcall-save-btn').addEventListener('click', async () => {
     const name = node.querySelector('.rollcall-edit-name').value.trim();
     if (!name) {
       alert('氏名を入力してください。');
+      return;
+    }
+    const token = await requireRollcallEditToken();
+    if (!token) {
+      alert('名簿の編集には合言葉が必要です。');
       return;
     }
     member.name = name;
@@ -3297,13 +3426,24 @@ function buildRollcallRegisterRow(member) {
     saveRollcallMembers();
     renderRollcallRegisterView();
     renderRollcallList();
+    if (!(await uploadRollcallRosterToServer())) {
+      alert('チームへの共有に失敗しました(この端末には保存されています)。');
+    }
   });
-  node.querySelector('.rollcall-delete-btn').addEventListener('click', () => {
+  node.querySelector('.rollcall-delete-btn').addEventListener('click', async () => {
     if (!confirm(`「${member.name}」を名簿から削除しますか?`)) return;
+    const token = await requireRollcallEditToken();
+    if (!token) {
+      alert('名簿の編集には合言葉が必要です。');
+      return;
+    }
     rollcallMembers = rollcallMembers.filter((m) => m.id !== member.id);
     saveRollcallMembers();
     renderRollcallRegisterView();
     renderRollcallList();
+    if (!(await uploadRollcallRosterToServer())) {
+      alert('チームへの共有に失敗しました(この端末には保存されています)。');
+    }
   });
 
   return node;
@@ -3323,10 +3463,15 @@ function renderRollcallRegisterView() {
 
 el.rollcallTagFilter.addEventListener('change', renderRollcallRegisterView);
 
-el.rollcallAddBtn.addEventListener('click', () => {
+el.rollcallAddBtn.addEventListener('click', async () => {
   const name = el.rollcallAddName.value.trim();
   if (!name) {
     alert('氏名を入力してください。');
+    return;
+  }
+  const token = await requireRollcallEditToken();
+  if (!token) {
+    alert('名簿の編集には合言葉が必要です。');
     return;
   }
   rollcallMembers.push({
@@ -3343,6 +3488,12 @@ el.rollcallAddBtn.addEventListener('click', () => {
   renderTagCheckboxes(el.rollcallAddTagCheckboxes, []);
   renderRollcallRegisterView();
   renderRollcallList();
+  if (!(await uploadRollcallRosterToServer())) {
+    alert('チームへの共有に失敗しました(この端末には保存されています)。');
+  }
 });
 
 renderRollcallList();
+loadSharedRollcallRoster().then(() => {
+  renderRollcallList();
+});
