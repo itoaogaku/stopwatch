@@ -2150,6 +2150,63 @@ function announceCue(category, text) {
   });
 }
 
+// 「終わり」のように、ボタン操作を伴わずタイマーから自動で鳴らす必要が
+// ある合図専用の仕組み。iOS Safariはボタン操作を伴わない音声再生を仕様上
+// ブロックするが、Web Audio API の AudioContext は一度でもユーザー操作
+// 中に resume() されていれば、以降はタイマー等の非操作タイミングから
+// 鳴らしても再生できる(ページを閉じるまでアンロック状態が続く)。この
+// 性質を利用し、録音済み音声を使っている場合だけこの経路で確実に鳴らす
+// (音声合成にはこの仕組みが効かないため、その場合や該当の録音が無い
+// 場合は今まで通りのベストエフォート(announceCue)にフォールバックする)。
+let sharedAudioContext = null;
+function getSharedAudioContext() {
+  const Ctor = window.AudioContext || window.webkitAudioContext;
+  if (!Ctor) return null;
+  if (!sharedAudioContext) sharedAudioContext = new Ctor();
+  return sharedAudioContext;
+}
+
+// 実際のボタン操作(ユーザー操作)の最中に必ず呼ぶことで、AudioContext を
+// アンロックしておく。
+function unlockSharedAudioContext() {
+  const ctx = getSharedAudioContext();
+  if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+}
+
+async function fetchRecordedCueBuffer(category, text) {
+  const selectedVoiceURI = selectedVoiceURIByCategory[category];
+  if (!isRecordedVoiceValue(selectedVoiceURI)) return null;
+  const setName = setNameFromVoiceValue(selectedVoiceURI);
+  const key = mapKey(category, setName);
+  const blob = nestedGet(recordingsMap, key, text);
+  const url = blob ? null : nestedGet(sharedRecordingsMap, key, text);
+  if (!blob && !url) return null;
+  const ctx = getSharedAudioContext();
+  if (!ctx) return null;
+  try {
+    const arrayBuffer = blob ? await blob.arrayBuffer() : await (await fetch(url)).arrayBuffer();
+    return await ctx.decodeAudioData(arrayBuffer);
+  } catch {
+    return null;
+  }
+}
+
+async function announceAutoCue(category, text) {
+  if (!voiceEnabled) return;
+  const ctx = getSharedAudioContext();
+  if (ctx && ctx.state === 'running') {
+    const buffer = await fetchRecordedCueBuffer(category, text);
+    if (buffer) {
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start();
+      return;
+    }
+  }
+  announceCue(category, text);
+}
+
 populateRecordingSetSelect();
 buildAllRecordingRows();
 loadAllRecordings()
@@ -2244,6 +2301,7 @@ function renderStretchUI() {
 // JS側では回避できないため、必ずこの実際のボタン操作に紐づけてセリフを
 // 読み上げ、それが読み終わってから初めてその種目のタイマーを開始する。
 function enterStretchStep(index) {
+  unlockSharedAudioContext(); // この実際のボタン操作で、後で「終わり」を自動で鳴らすための準備をしておく
   stretchIndex = index;
   stretchElapsedMs = 0;
   stretchRunning = false;
@@ -2308,10 +2366,11 @@ function tickStretch() {
       stretchElapsedMs = STRETCH_STEP_MS;
       stretchRunning = false;
       renderStretchUI();
-      // ベストエフォート: ボタン操作を伴わないため、iOS Safariでは仕様上
-      // 鳴らないことがある(各種目のセリフ自体は次へボタンを押した時に
-      // 確実に読み上げられるので、そちらで内容は伝わる)。
-      announceCue('stretch', '終わり');
+      // 録音済み音声を使っている場合は AudioContext 経由で確実に鳴らす。
+      // 音声合成を選んでいる場合はこの仕組みが効かないため、その場合は
+      // 引き続きベストエフォート(iOS Safariでは鳴らないことがある。各
+      // 種目のセリフ自体は次へボタンを押した時に確実に読み上げられる)。
+      announceAutoCue('stretch', '終わり');
     } else {
       updateStretchTimerDisplay();
     }
