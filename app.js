@@ -73,6 +73,7 @@ const el = {
   tabataStartBtn: document.getElementById('tabataStartBtn'),
   tabataResetBtn: document.getElementById('tabataResetBtn'),
   rollcallProgress: document.getElementById('rollcallProgress'),
+  rollcallMainTagFilter: document.getElementById('rollcallMainTagFilter'),
   rollcallList: document.getElementById('rollcallList'),
   rollcallRegisterToggle: document.getElementById('rollcallRegisterToggle'),
   rollcallResetBtn: document.getElementById('rollcallResetBtn'),
@@ -3075,14 +3076,35 @@ el.rollcallNewTagBtn.addEventListener('click', () => {
   addRollcallTag(el.rollcallNewTagName.value);
   el.rollcallNewTagName.value = '';
   renderRollcallTagManageList();
-  renderRollcallTagFilterOptions();
+  renderTagFilterOptions(el.rollcallTagFilter);
   renderTagCheckboxes(el.rollcallAddTagCheckboxes, []);
+  renderRollcallList();
 });
 
+// タグ絞り込み用<select>の選択肢を、登録済みタグ一覧(rollcallTags)から
+// 作り直す。点呼タブ本体の絞り込みと、名簿編集モーダルの絞り込みの両方で
+// 使う共通処理。
+function renderTagFilterOptions(selectEl) {
+  const currentValue = selectEl.value;
+  selectEl.innerHTML = '';
+  const allOption = document.createElement('option');
+  allOption.value = '';
+  allOption.textContent = 'すべて表示';
+  selectEl.appendChild(allOption);
+  rollcallTags.forEach((tag) => {
+    const opt = document.createElement('option');
+    opt.value = tag;
+    opt.textContent = tag;
+    selectEl.appendChild(opt);
+  });
+  // 選んでいたタグがまだ存在するなら維持する(無くなっていたら「すべて」に戻る)。
+  selectEl.value = rollcallTags.includes(currentValue) ? currentValue : '';
+}
+
 /* ----- 点呼タブ本体: 学年ごとに縦並び、押すと一番下にスライドする ----- */
-function renderRollcallProgress() {
-  const total = rollcallMembers.length;
-  const checkedCount = rollcallMembers.filter((m) => m.checked).length;
+function renderRollcallProgress(visibleMembers) {
+  const total = visibleMembers.length;
+  const checkedCount = visibleMembers.filter((m) => m.checked).length;
   el.rollcallProgress.textContent = `点呼 ${checkedCount} / ${total}`;
 }
 
@@ -3096,10 +3118,16 @@ function buildRollcallMemberButton(member) {
   return node;
 }
 
+// タグで絞り込んでいる間は、その絞り込み内の人数だけを対象に一覧・進捗を
+// 表示する(絞り込みを外せば全員が対象に戻る)。
 function renderRollcallList() {
+  renderTagFilterOptions(el.rollcallMainTagFilter);
+  const filterTag = el.rollcallMainTagFilter.value;
+  const visibleMembers = rollcallMembers.filter((m) => !filterTag || m.tags.includes(filterTag));
+
   el.rollcallList.innerHTML = '';
   ROLLCALL_GRADES.forEach((grade) => {
-    const members = rollcallMembers.filter((m) => m.grade === grade);
+    const members = visibleMembers.filter((m) => m.grade === grade);
     if (members.length === 0) return;
 
     // 未点呼(checked=false)は元の並び順のまま上に、点呼済みは押した順に
@@ -3125,8 +3153,10 @@ function renderRollcallList() {
 
     el.rollcallList.appendChild(section);
   });
-  renderRollcallProgress();
+  renderRollcallProgress(visibleMembers);
 }
+
+el.rollcallMainTagFilter.addEventListener('change', renderRollcallList);
 
 // タップ時の「一番下にスライド」感を出すため、再描画の前後で各行の位置を
 // 記録し(FLIPテクニック)、移動した分だけ逆方向にずらしておいてから
@@ -3190,24 +3220,6 @@ function setRollcallRegisterModalOpen(open) {
 el.rollcallRegisterToggle.addEventListener('click', () => setRollcallRegisterModalOpen(true));
 el.rollcallRegisterCloseBtn.addEventListener('click', () => setRollcallRegisterModalOpen(false));
 
-function renderRollcallTagFilterOptions() {
-  const currentValue = el.rollcallTagFilter.value;
-  const tags = rollcallTags;
-  el.rollcallTagFilter.innerHTML = '';
-  const allOption = document.createElement('option');
-  allOption.value = '';
-  allOption.textContent = 'すべて表示';
-  el.rollcallTagFilter.appendChild(allOption);
-  tags.forEach((tag) => {
-    const opt = document.createElement('option');
-    opt.value = tag;
-    opt.textContent = tag;
-    el.rollcallTagFilter.appendChild(opt);
-  });
-  // 選んでいたタグがまだ存在するなら維持する(無くなっていたら「すべて」に戻る)。
-  el.rollcallTagFilter.value = tags.includes(currentValue) ? currentValue : '';
-}
-
 function buildRollcallRegisterRow(member) {
   const node = el.rollcallRegisterRowTemplate.content.firstElementChild.cloneNode(true);
   const viewEl = node.querySelector('.rollcall-register-row-view');
@@ -3252,7 +3264,7 @@ function buildRollcallRegisterRow(member) {
 }
 
 function renderRollcallRegisterView() {
-  renderRollcallTagFilterOptions();
+  renderTagFilterOptions(el.rollcallTagFilter);
   const filterTag = el.rollcallTagFilter.value;
   const members = rollcallMembers
     .filter((m) => !filterTag || m.tags.includes(filterTag))

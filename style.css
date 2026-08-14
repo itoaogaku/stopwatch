@@ -1327,10 +1327,13 @@ html, body {
   margin-right: auto;
 }
 
+/* 4年・2年を左列、3年・1年を右列にした2列グリッド(学年の並びは
+   ROLLCALL_GRADES = [4, 3, 2, 1] のまま、2列だと自然に4|3・2|1になる)。 */
 .rollcall-list {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+  align-items: start;
 }
 .rollcall-grade-section {
   display: flex;
@@ -1351,22 +1354,29 @@ html, body {
 
 .rollcall-member {
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: 10px 10px;
   color: var(--text);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.05s ease, background 0.15s ease, opacity 0.2s ease, filter 0.05s ease;
+}
+.rollcall-member-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .rollcall-member:active,
 .rollcall-member.is-pressed {
@@ -1385,6 +1395,10 @@ html, body {
   font-weight: 700;
   color: var(--accent);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+  flex: 0 1 auto;
 }
 .rollcall-member.is-checked .rollcall-member-tags {
   color: var(--text-dim);
