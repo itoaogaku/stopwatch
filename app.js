@@ -1057,14 +1057,14 @@ const STRETCH_STEP_MS = 30000;
 // its own independent top-level tab — see REINFORCE_MENU_TABS.
 const REINFORCE_MENUS = {
   フル: [
-    { group: '【1】膝立て', spec: '10回4カウント', speech: '膝立ていきます、よーいはじめ', voice: '膝立ていきます、よーいはじめ', durationSec: null },
-    { group: '【2】膝伸ばし', spec: '10回4カウント', speech: '膝伸ばしいきます、よーいはじめ', voice: '膝伸ばしいきます、よーいはじめ', durationSec: null },
+    { group: '【1】膝立て', spec: '10回4カウント', speech: '膝立ていきます、よーいはじめ', voice: 'ひざだていきます、よーいはじめ', durationSec: null },
+    { group: '【2】膝伸ばし', spec: '10回4カウント', speech: '膝伸ばしいきます、よーいはじめ', voice: 'ひざのばしいきます、よーいはじめ', durationSec: null },
     { group: '【3】バンザイ', spec: '10回4カウント', speech: 'バンザイいきます、よーいはじめ', voice: 'バンザイいきます、よーいはじめ', durationSec: null },
-    { group: '【4】四つん這い', spec: '10回4カウント', speech: '四つん這いいきます、よーいはじめ', voice: '四つん這いいきます、よーいはじめ', durationSec: null },
+    { group: '【4】四つん這い', spec: '10回4カウント', speech: '四つん這いいきます、よーいはじめ', voice: 'よつんばいいきます、よーいはじめ', durationSec: null },
     { group: '【5】プランク', spec: '10回4カウント', speech: 'プランクいきます、よーいはじめ', voice: 'プランクいきます、よーいはじめ', durationSec: null },
     { group: '【6】プランク(各自)', spec: '8回4カウント', speech: 'プランク各自いきます、よーいはじめ', voice: 'プランク各自いきます、よーいはじめ', durationSec: null },
 
-    { group: '【7】ダイアゴナル(縦横)', spec: '40秒', speech: 'ダイアゴナル縦横40秒ずついきます、よーいはじめ', voice: 'ダイアゴナル縦横40秒ずついきます、よーいはじめ', durationSec: 40 },
+    { group: '【7】ダイアゴナル(縦横)', spec: '40秒', speech: 'ダイアゴナル縦横40秒ずついきます、よーいはじめ', voice: 'ダイアゴナルたてよこ40秒ずついきます、よーいはじめ', durationSec: 40 },
     { group: '【7】ダイアゴナル(反対)', spec: '40秒', speech: '反対いきます、よーいはじめ', voice: '反対いきます、よーいはじめ', durationSec: 40 },
     { group: '【7】ダイアゴナル(サイド)', spec: '40秒', speech: 'サイドいきます、よーいはじめ', voice: 'サイドいきます、よーいはじめ', durationSec: 40 },
     { group: '【7】ダイアゴナル(反対)', spec: '40秒', speech: '反対いきます、よーいはじめ', voice: '反対いきます、よーいはじめ', durationSec: 40 },
@@ -1097,10 +1097,10 @@ const REINFORCE_MENUS = {
     { group: '【18】ストレッチ', spec: '30秒×2(1人で行う)', speech: 'ストレッチいきます、よーいはじめ', voice: 'ストレッチいきます、よーいはじめ', durationSec: 30 },
     { group: '【18】ストレッチ(反対)', spec: '30秒×2(1人で行う)', speech: '反対', voice: '反対', durationSec: 30 },
 
-    { group: '【19】前鋸筋', spec: '(1人で行う)各20回4カウント×2', speech: '前鋸筋いきます、よーいはじめ', voice: '前鋸筋いきます、よーいはじめ', durationSec: null },
+    { group: '【19】前鋸筋', spec: '(1人で行う)各20回4カウント×2', speech: '前鋸筋いきます、よーいはじめ', voice: 'ぜんきょきんいきます、よーいはじめ', durationSec: null },
     { group: '【19】前鋸筋(反対)', spec: '(1人で行う)各20回4カウント×2', speech: '反対', voice: '反対', durationSec: null },
 
-    { group: '【20】下後鋸筋', spec: '(2人組)各自30回・全員終わるまで待つ', speech: '下後鋸筋いきます', voice: '下後鋸筋いきます', durationSec: null },
+    { group: '【20】下後鋸筋', spec: '(2人組)各自30回・全員終わるまで待つ', speech: '下後鋸筋いきます', voice: 'かこうきょきんいきます', durationSec: null },
 
     { group: '【21】ストレッチ', spec: '30秒×2(以降1人で行う)', speech: 'ストレッチいきます、よーいはじめ', voice: 'ストレッチいきます、よーいはじめ', durationSec: 30 },
     { group: '【21】ストレッチ(反対)', spec: '30秒×2(以降1人で行う)', speech: '反対', voice: '反対', durationSec: 30 },
@@ -1122,10 +1122,10 @@ const REINFORCE_MENUS = {
     { group: '【23】サーキット⑥ジャックナイフ(2/2セット)', spec: '10回4カウント×2', speech: 'よーいはじめ', voice: 'よーいはじめ', durationSec: null },
   ],
   コアA: [
-    { group: '【1】膝伸ばし', spec: '10回4カウント', speech: '膝伸ばしいきます、よーいはじめ', voice: '膝伸ばしいきます、よーいはじめ', durationSec: null },
+    { group: '【1】膝伸ばし', spec: '10回4カウント', speech: '膝伸ばしいきます、よーいはじめ', voice: 'ひざのばしいきます、よーいはじめ', durationSec: null },
     { group: '【2】バンザイ', spec: '10回4カウント', speech: 'バンザイいきます、よーいはじめ', voice: 'バンザイいきます、よーいはじめ', durationSec: null },
-    { group: '【3】四つん這い', spec: '10回4カウント', speech: '四つん這いいきます、よーいはじめ', voice: '四つん這いいきます、よーいはじめ', durationSec: null },
-    { group: '【4】プランク膝つき', spec: '10回4カウント', speech: 'プランク膝つきいきます、よーいはじめ', voice: 'プランク膝つきいきます、よーいはじめ', durationSec: null },
+    { group: '【3】四つん這い', spec: '10回4カウント', speech: '四つん這いいきます、よーいはじめ', voice: 'よつんばいいきます、よーいはじめ', durationSec: null },
+    { group: '【4】プランク膝つき', spec: '10回4カウント', speech: 'プランク膝つきいきます、よーいはじめ', voice: 'プランクひざつきいきます、よーいはじめ', durationSec: null },
 
     { group: '【5】ダイアゴナル(縦振り)', spec: '30秒', speech: 'ダイアゴナル、縦振りいきます、よーいはじめ', voice: 'ダイアゴナル、縦振りいきます、よーいはじめ', durationSec: 30 },
     { group: '【5】ダイアゴナル(縦振り・反対)', spec: '30秒', speech: '反対いきます、よーいはじめ', voice: '反対いきます、よーいはじめ', durationSec: 30 },
@@ -1158,10 +1158,10 @@ const REINFORCE_MENUS = {
     { group: '【9】サーキット⑥ジャックナイフ(2/2セット)', spec: '10回4カウント、サーキット合計約5分', speech: 'よーいはじめ', voice: 'よーいはじめ', durationSec: null },
   ],
   コアB: [
-    { group: '【1】膝伸ばし', spec: '10回4カウント', speech: '膝伸ばしいきます、よーいはじめ', voice: '膝伸ばしいきます、よーいはじめ', durationSec: null },
+    { group: '【1】膝伸ばし', spec: '10回4カウント', speech: '膝伸ばしいきます、よーいはじめ', voice: 'ひざのばしいきます、よーいはじめ', durationSec: null },
     { group: '【2】バンザイ', spec: '10回4カウント', speech: 'バンザイいきます、よーいはじめ', voice: 'バンザイいきます、よーいはじめ', durationSec: null },
-    { group: '【3】四つん這い', spec: '10回4カウント', speech: '四つん這いいきます、よーいはじめ', voice: '四つん這いいきます、よーいはじめ', durationSec: null },
-    { group: '【4】プランク膝つき', spec: '10回4カウント', speech: 'プランク膝つきいきます、よーいはじめ', voice: 'プランク膝つきいきます、よーいはじめ', durationSec: null },
+    { group: '【3】四つん這い', spec: '10回4カウント', speech: '四つん這いいきます、よーいはじめ', voice: 'よつんばいいきます、よーいはじめ', durationSec: null },
+    { group: '【4】プランク膝つき', spec: '10回4カウント', speech: 'プランク膝つきいきます、よーいはじめ', voice: 'プランクひざつきいきます、よーいはじめ', durationSec: null },
 
     { group: '【5】ダイアゴナル(縦振り)', spec: '30秒', speech: 'ダイアゴナル、縦振りいきます、よーいはじめ', voice: 'ダイアゴナル、縦振りいきます、よーいはじめ', durationSec: 30 },
     { group: '【5】ダイアゴナル(縦振り・反対)', spec: '30秒', speech: '反対いきます、よーいはじめ', voice: '反対いきます、よーいはじめ', durationSec: 30 },
@@ -1196,14 +1196,14 @@ const REINFORCE_MENUS = {
 
     { group: '【13】ストレッチ', spec: '30秒', speech: 'ストレッチいきます、よーいはじめ', voice: 'ストレッチいきます、よーいはじめ', durationSec: 30 },
 
-    { group: '【14】前鋸筋', spec: '各20回', speech: '前鋸筋いきます、よーいはじめ', voice: '前鋸筋いきます、よーいはじめ', durationSec: null },
+    { group: '【14】前鋸筋', spec: '各20回', speech: '前鋸筋いきます、よーいはじめ', voice: 'ぜんきょきんいきます、よーいはじめ', durationSec: null },
     { group: '【14】前鋸筋(反対)', spec: '各20回', speech: '反対', voice: '反対', durationSec: null },
 
-    { group: '【15】下後鋸筋', spec: '', speech: '下後鋸筋いきます', voice: '下後鋸筋いきます', durationSec: null },
+    { group: '【15】下後鋸筋', spec: '', speech: '下後鋸筋いきます', voice: 'かこうきょきんいきます', durationSec: null },
   ],
   ループ: [
-    { group: '◎アップ(1)', spec: '腹横筋の感覚入力', speech: 'アップいきます、両膝を立てて両手を横から、よーいはじめ', voice: 'アップいきます、両膝を立てて両手を横から、よーいはじめ', durationSec: null },
-    { group: '◎アップ(2)', spec: '腹横筋の感覚入力', speech: '続けて、両脚伸ばして両手を上から下まで、よーいはじめ', voice: '続けて、両脚伸ばして両手を上から下まで、よーいはじめ', durationSec: null },
+    { group: '◎アップ(1)', spec: '腹横筋の感覚入力', speech: 'アップいきます、両膝を立てて両手を横から、よーいはじめ', voice: 'アップいきます、両ひざを立てて両手を横から、よーいはじめ', durationSec: null },
+    { group: '◎アップ(2)', spec: '腹横筋の感覚入力', speech: '続けて、両脚伸ばして両手を上から下まで、よーいはじめ', voice: '続けて、両あし伸ばして両手を上から下まで、よーいはじめ', durationSec: null },
 
     { group: '【1】スクリューレッグリフトフルレンジ(右上)', spec: '10回', speech: 'スクリューレッグリフトフルレンジ、右上いきます、よーいはじめ', voice: 'スクリューレッグリフトフルレンジ、右上いきます、よーいはじめ', durationSec: null },
     { group: '【1】スクリューレッグリフトフルレンジ(左上)', spec: '10回', speech: '左上、よーいはじめ', voice: '左上、よーいはじめ', durationSec: null },
@@ -1216,7 +1216,7 @@ const REINFORCE_MENUS = {
     { group: '【4】ニーリングサイドキック(手を頭に当てて)', spec: '10回', speech: 'ニーリングサイドキック、手を頭に当てていきます、よーいはじめ', voice: 'ニーリングサイドキック、手を頭に当てていきます、よーいはじめ', durationSec: null },
     { group: '【4】ニーリングサイドキック(手を動かして)', spec: '10回', speech: '続けて、手を動かしていきます、よーいはじめ', voice: '続けて、手を動かしていきます、よーいはじめ', durationSec: null },
 
-    { group: '【5】4の字ツイストボード', spec: '15回(5カウント)', speech: '4の字ツイストボードいきます、よーいはじめ', voice: '4の字ツイストボードいきます、よーいはじめ', durationSec: null },
+    { group: '【5】4の字ツイストボード', spec: '15回(5カウント)', speech: '4の字ツイストボードいきます、よーいはじめ', voice: 'よんの字ツイストボードいきます、よーいはじめ', durationSec: null },
 
     { group: '【6】サイドエルボープッシュ', spec: '20回(4カウント)', speech: 'サイドエルボープッシュいきます、よーいはじめ', voice: 'サイドエルボープッシュいきます、よーいはじめ', durationSec: null },
 
@@ -1229,7 +1229,7 @@ const REINFORCE_MENUS = {
     { group: '【9】ロングV', spec: '15回', speech: 'ロングVいきます、よーいはじめ', voice: 'ロングVいきます、よーいはじめ', durationSec: null },
 
     { group: '【10】ピラーブリッジフロント(腕)', spec: '肘付き・5カウント', speech: 'ピラーブリッジフロント、肘付き、腕からいきます、よーいはじめ', voice: 'ピラーブリッジフロント、肘付き、腕からいきます、よーいはじめ', durationSec: null },
-    { group: '【10】ピラーブリッジフロント(脚)', spec: '肘付き・5カウント', speech: '続けて脚、よーいはじめ', voice: '続けて脚、よーいはじめ', durationSec: null },
+    { group: '【10】ピラーブリッジフロント(脚)', spec: '肘付き・5カウント', speech: '続けて脚、よーいはじめ', voice: '続けてあし、よーいはじめ', durationSec: null },
     { group: '【10】ピラーブリッジフロント(対角バランス)', spec: '2周・5カウント', speech: '対角バランス、2周いきます、よーいはじめ', voice: '対角バランス、2周いきます、よーいはじめ', durationSec: null },
   ],
   下肢: [
