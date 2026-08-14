@@ -995,10 +995,10 @@ el.crossingCards.forEach((card) => {
 // instructions for the manager, not part of the spoken cue itself.
 const STRETCH_STEPS = [
   { group: '下後鋸筋', speech: '下後鋸筋(かこうきょきん)行きます、よーいはじめ', voice: 'かこうきょきん、行きます。よーいはじめ' },
-  { group: '下後鋸筋(反対)', speech: '反対、よーいはじめ', voice: '反対、よーいはじめ' },
+  { group: '下後鋸筋(反対)', speech: '反対', voice: '反対' },
 
   { group: '大臀筋', speech: '次、大臀筋(だいでんきん)(選手が体制を変えたらよーいはじめ)', voice: '次、だいでんきん' },
-  { group: '大臀筋(反対)', speech: '反対、よーいはじめ', voice: '反対、よーいはじめ' },
+  { group: '大臀筋(反対)', speech: '反対', voice: '反対' },
 
   { group: '梨状筋', speech: '次、梨状筋(りじょうきん)(選手が体制を変えたらウォッチ押す)', voice: '次、りじょうきん' },
   { group: '梨状筋(反対)', speech: '反対', voice: '反対' },
