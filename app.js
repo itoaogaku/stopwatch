@@ -1097,12 +1097,17 @@ const REINFORCE_MENUS = {
 
     { group: '※2人組になる', spec: '', speech: '2人組になってください', voice: '2人組になってください', durationSec: null },
 
-    { group: '【12.14】2人組腹斜筋', spec: '各10回4カウント×2', speech: '2人組腹斜筋いきます、外腹斜筋を意識してください、よーいはじめ', voice: '2人組ふくしゃきんいきます、がいふくしゃきんを意識してください、よーいはじめ', durationSec: null },
-    { group: '【12.14】2人組腹斜筋(反対)', spec: '各10回4カウント×2', speech: '反対', voice: '反対', durationSec: null },
+    { group: '【12】2人組腹斜筋', spec: '各10回4カウント×2', speech: '2人組腹斜筋いきます、外腹斜筋を意識してください、よーいはじめ', voice: '2人組ふくしゃきんいきます、がいふくしゃきんを意識してください、よーいはじめ', durationSec: null },
+    { group: '【12】2人組腹斜筋(反対)', spec: '各10回4カウント×2', speech: '反対', voice: '反対', durationSec: null },
 
-    { group: '【13.15】スリップボード', spec: '45秒', speech: 'スリップボードいきます、バックラインを意識してください、よーいはじめ', voice: 'スリップボードいきます、バックラインを意識してください、よーいはじめ', durationSec: 45 },
+    { group: '【13】スリップボード', spec: '45秒', speech: 'スリップボードいきます、バックラインを意識してください、よーいはじめ', voice: 'スリップボードいきます、バックラインを意識してください、よーいはじめ', durationSec: 45 },
 
     { group: '※2人組交代', spec: '腹斜筋に戻る', speech: '交代してください', voice: '交代してください', durationSec: null },
+
+    { group: '【14】2人組腹斜筋', spec: '各10回4カウント×2', speech: '2人組腹斜筋いきます、外腹斜筋を意識してください、よーいはじめ', voice: '2人組ふくしゃきんいきます、がいふくしゃきんを意識してください、よーいはじめ', durationSec: null },
+    { group: '【14】2人組腹斜筋(反対)', spec: '各10回4カウント×2', speech: '反対', voice: '反対', durationSec: null },
+
+    { group: '【15】スリップボード', spec: '45秒', speech: 'スリップボードいきます、バックラインを意識してください、よーいはじめ', voice: 'スリップボードいきます、バックラインを意識してください、よーいはじめ', durationSec: 45 },
 
     { group: '【16】ショートV', spec: '(1人で行う)10回4カウント×2', speech: 'ショートVいきます、外腹斜筋と内転筋を意識してください、よーいはじめ', voice: 'ショートVいきます、がいふくしゃきんとないてんきんを意識してください、よーいはじめ', durationSec: null },
     { group: '【16】ショートV(反対)', spec: '(1人で行う)10回4カウント×2', speech: '反対', voice: '反対', durationSec: null },
@@ -1110,6 +1115,7 @@ const REINFORCE_MENUS = {
     { group: '【17】レッグダウン', spec: '(2人組)各8回4カウント+あげて', speech: 'レッグダウンいきます、外腹斜筋と内転筋を意識してください、よーいはじめ', voice: 'レッグダウンいきます、がいふくしゃきんとないてんきんを意識してください、よーいはじめ', durationSec: null },
     { group: '【17】レッグダウン(反対)', spec: '(2人組)各8回4カウント+あげて', speech: '反対', voice: '反対', durationSec: null },
     { group: '【17】レッグダウン(交代)', spec: '', speech: '交代', voice: '交代', durationSec: null },
+    { group: '【17】レッグダウン(反対)', spec: '(2人組)各8回4カウント+あげて', speech: '反対', voice: '反対', durationSec: null },
 
     { group: '【18】ストレッチ', spec: '30秒×2(1人で行う)', speech: 'ストレッチいきます、よーいはじめ', voice: 'ストレッチいきます、よーいはじめ', durationSec: 30 },
     { group: '【18】ストレッチ(反対)', spec: '30秒×2(1人で行う)', speech: '反対', voice: '反対', durationSec: 30 },
