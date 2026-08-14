@@ -1009,7 +1009,7 @@ const STRETCH_STEPS = [
   { group: '大腿筋膜張筋', speech: '次、大腿筋膜張筋(だいたいきんまくちょうきん)(選手が体制を変えたらウォッチ押す)', voice: '次、だいたいきんまくちょうきん' },
   { group: '大腿筋膜張筋(反対)', speech: '反対', voice: '反対' },
 
-  { group: 'ハム', speech: '次、ハム(選手が体制を変えたらウォッチ押す)', voice: '次、ハム' },
+  { group: 'ハム', speech: '次、ハムストリングス(選手が体制を変えたらウォッチ押す)', voice: '次、ハムストリングス' },
   { group: 'ハム(内側)', speech: '内側', voice: '内側' },
   { group: 'ハム(外側)', speech: '外側', voice: '外側' },
   { group: 'ハム(反対)', speech: '反対', voice: '反対' },
