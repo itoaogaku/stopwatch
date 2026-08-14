@@ -2368,6 +2368,11 @@ function createReinforceTab(tab) {
   let running = false;
   let elapsedMs = 0;
   let startEpoch = 0;
+  // どの種目も、セリフを読み終えるまでタイマーを始めない(音声がOFFの時は
+  // 読み上げが即座に完了するので、体感上はボタンを押した瞬間にタイマーが
+  // 始まる)。ストレッチタブと同じ設計 — iOS Safariがボタン操作を伴わない
+  // 音声合成を仕様上ブロックするため。
+  let awaitingVoice = false;
 
   function steps() {
     return REINFORCE_MENUS[tab.menuKey] || [];
@@ -2412,43 +2417,53 @@ function createReinforceTab(tab) {
     // stepInProgress では無効化しない(戻れない/進めない条件のときだけ無効化)。
     elLocal.prevBtn.disabled = index <= 0;
     elLocal.nextBtn.disabled = s.length === 0;
-    elLocal.pauseBtn.disabled = index === -1;
+    elLocal.pauseBtn.disabled = index === -1 || awaitingVoice;
     elLocal.pauseBtn.textContent = running ? '一時停止' : '再開';
     updateTimerDisplay();
   }
 
+  // 種目を選び直す共通処理(「次へ」「前に戻る」共通)。セリフを読み終える
+  // まで待ってから、その種目のタイマーを開始する。
+  function enterStep(nextIndex) {
+    index = nextIndex;
+    elapsedMs = 0;
+    running = false;
+    awaitingVoice = true;
+    render();
+    const enteredIndex = index;
+    announceCue(tab.id, steps()[index].voice).then(() => {
+      // 読み上げを待っている間に別の操作で状態が変わっていたら何もしない。
+      if (index !== enteredIndex || !awaitingVoice) return;
+      awaitingVoice = false;
+      running = true;
+      startEpoch = Date.now();
+      render();
+    });
+  }
+
   function startNext() {
     const s = steps();
-    index += 1;
-    if (index >= s.length) {
+    const nextIndex = index + 1;
+    if (nextIndex >= s.length) {
       index = -1;
       running = false;
+      awaitingVoice = false;
       elapsedMs = 0;
       render();
       return;
     }
-    running = true;
-    elapsedMs = 0;
-    startEpoch = Date.now();
-    render();
-    announceCue(tab.id, s[index].voice);
+    enterStep(nextIndex);
   }
 
   // 「前に戻る」: ロック中かどうかに関わらず、直前の種目に戻ってやり直せる。
   // 最初の種目(index 0)より前には戻れない。
   function goToPrevious() {
     if (index <= 0) return;
-    const s = steps();
-    index -= 1;
-    running = true;
-    elapsedMs = 0;
-    startEpoch = Date.now();
-    render();
-    announceCue(tab.id, s[index].voice);
+    enterStep(index - 1);
   }
 
   function togglePause() {
-    if (index === -1) return;
+    if (index === -1 || awaitingVoice) return; // guarded by disabled state too
     if (running) {
       elapsedMs = currentElapsedMs();
       running = false;
@@ -2462,6 +2477,7 @@ function createReinforceTab(tab) {
   function reset() {
     index = -1;
     running = false;
+    awaitingVoice = false;
     elapsedMs = 0;
     render();
   }
