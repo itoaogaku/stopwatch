@@ -1046,6 +1046,10 @@ const STRETCH_STEPS = [
 ];
 
 const STRETCH_STEP_MS = 30000;
+// 次の種目の内容の自動先読みは、30秒ぴったりではなく29秒経過した時点で
+// 始める(読み終わる頃にはだいたい30秒経っているくらいのタイミングを
+// 狙ったもの)。カウント表示や種目自体の30秒はこれまで通り変わらない。
+const STRETCH_ANNOUNCE_LEAD_MS = 1000;
 // 次の種目の内容は、直前の種目の30秒が終わったタイミングで自動的に先読み
 // されるので(下の enterStretchStep 参照)、実際にボタンを押して次の種目に
 // 入る時はこの短い合図だけを読む(先読みできていた場合のみ。できなかった
@@ -2384,7 +2388,7 @@ function enterStretchStep(index) {
       stretchStartEpoch = Date.now();
       renderStretchUI();
 
-      const silenceAudio = new Audio(silentWavDataUri(STRETCH_STEP_MS));
+      const silenceAudio = new Audio(silentWavDataUri(STRETCH_STEP_MS - STRETCH_ANNOUNCE_LEAD_MS));
       stretchAutoAnnounceAudio = silenceAudio;
       silenceAudio.addEventListener('ended', () => {
         if (stretchAutoAnnounceAudio !== silenceAudio) return; // キャンセル済み
