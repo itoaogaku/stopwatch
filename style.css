@@ -948,7 +948,7 @@ html, body {
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -958,6 +958,7 @@ html, body {
   font-size: 13px;
   font-weight: 700;
   color: var(--text-dim);
+  margin-left: auto; /* 🔊音声・🎙録音するボタンは左詰めでまとめ、進捗表示だけ右端に寄せる */
 }
 
 #stretchVoiceToggle.is-muted {
