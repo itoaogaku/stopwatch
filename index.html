@@ -33,6 +33,7 @@
       <button type="button" class="tab-btn" data-tab="reinforceLoop">補強ループ</button>
       <button type="button" class="tab-btn" data-tab="reinforceLower">補強下肢</button>
       <button type="button" class="tab-btn" data-tab="tabata">TABATA</button>
+      <button type="button" class="tab-btn" data-tab="rollcall">点呼</button>
     </div>
   </nav>
 
@@ -183,6 +184,17 @@
         </div>
       </div>
     </div>
+
+    <div id="rollcallTab" class="tab-panel" hidden>
+      <div class="rollcall-app">
+        <div class="rollcall-header-row">
+          <div class="rollcall-progress" id="rollcallProgress">点呼 0 / 0</div>
+          <button type="button" class="btn btn-ghost btn-sm" id="rollcallRegisterToggle">📋 名簿を編集</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="rollcallResetBtn">リセット</button>
+        </div>
+        <div class="rollcall-list" id="rollcallList"></div>
+      </div>
+    </div>
   </div>
 
   <div id="stretchRecordingsModal" class="stretch-recordings-modal" hidden>
@@ -207,6 +219,80 @@
       <div id="stretchRecordingsList" class="stretch-recordings-list"></div>
     </div>
   </div>
+
+  <div id="rollcallRegisterModal" class="stretch-recordings-modal" hidden>
+    <div class="stretch-recordings-modal-panel">
+      <div class="stretch-recordings-modal-header">
+        <span>名簿の登録・編集</span>
+        <button type="button" class="stretch-recordings-close-btn" id="rollcallRegisterCloseBtn" title="閉じる">×</button>
+      </div>
+      <p class="pace-desc">選手を追加・編集・削除できます。タグは自由入力です(カンマ区切りで複数可。例: 故障者、イレギュラー)。タグを付けておくと、下の絞り込みでそのタグが付いた選手だけを表示できます。</p>
+
+      <div class="rollcall-add-form">
+        <div class="rollcall-add-form-row">
+          <input type="text" id="rollcallAddName" placeholder="氏名" />
+          <select id="rollcallAddGrade">
+            <option value="4">4年</option>
+            <option value="3">3年</option>
+            <option value="2">2年</option>
+            <option value="1">1年</option>
+          </select>
+        </div>
+        <div class="rollcall-add-form-row">
+          <input type="text" id="rollcallAddTags" placeholder="タグ(任意、カンマ区切り)" />
+          <button type="button" class="btn btn-primary btn-sm" id="rollcallAddBtn">+ 追加</button>
+        </div>
+      </div>
+
+      <label class="rollcall-filter">
+        <span>タグで絞り込み</span>
+        <select id="rollcallTagFilter"><option value="">すべて表示</option></select>
+      </label>
+
+      <div id="rollcallRegisterList" class="stretch-recordings-list"></div>
+    </div>
+  </div>
+
+  <template id="rollcallMemberTemplate">
+    <button type="button" class="rollcall-member">
+      <span class="rollcall-member-name"></span>
+      <span class="rollcall-member-tags"></span>
+    </button>
+  </template>
+
+  <template id="rollcallRegisterRowTemplate">
+    <div class="rollcall-register-row">
+      <div class="rollcall-register-row-view">
+        <div class="rollcall-register-row-info">
+          <span class="rollcall-register-row-name"></span>
+          <span class="rollcall-register-row-grade"></span>
+          <span class="rollcall-register-row-tags"></span>
+        </div>
+        <div class="rollcall-register-row-buttons">
+          <button type="button" class="btn btn-ghost btn-sm rollcall-edit-btn">✎ 編集</button>
+          <button type="button" class="btn btn-ghost btn-sm rollcall-delete-btn">🗑 削除</button>
+        </div>
+      </div>
+      <div class="rollcall-register-row-edit" hidden>
+        <div class="rollcall-add-form-row">
+          <input type="text" class="rollcall-edit-name" />
+          <select class="rollcall-edit-grade">
+            <option value="4">4年</option>
+            <option value="3">3年</option>
+            <option value="2">2年</option>
+            <option value="1">1年</option>
+          </select>
+        </div>
+        <div class="rollcall-add-form-row">
+          <input type="text" class="rollcall-edit-tags" placeholder="タグ(カンマ区切り)" />
+        </div>
+        <div class="rollcall-register-row-buttons">
+          <button type="button" class="btn btn-primary btn-sm rollcall-save-btn">保存</button>
+          <button type="button" class="btn btn-ghost btn-sm rollcall-cancel-btn">キャンセル</button>
+        </div>
+      </div>
+    </div>
+  </template>
 
   <template id="paceRowTemplate">
     <div class="pace-row">

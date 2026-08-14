@@ -1301,3 +1301,196 @@ html, body {
   font-size: 40px;
 }
 
+/* ---------- 点呼(ロールコール) ---------- */
+.rollcall-app {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  color: var(--text);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.rollcall-header-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rollcall-progress {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin-right: auto;
+}
+
+.rollcall-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.rollcall-grade-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rollcall-grade-heading {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  padding: 2px 2px;
+}
+.rollcall-grade-members {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rollcall-member {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.05s ease, background 0.15s ease, opacity 0.2s ease, filter 0.05s ease;
+}
+.rollcall-member:active,
+.rollcall-member.is-pressed {
+  transform: scale(0.97);
+  filter: brightness(0.85);
+}
+.rollcall-member.is-checked {
+  background: transparent;
+  border-style: dashed;
+  color: var(--text-dim);
+  font-weight: 500;
+  opacity: 0.6;
+}
+.rollcall-member-tags {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.rollcall-member.is-checked .rollcall-member-tags {
+  color: var(--text-dim);
+}
+
+.rollcall-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rollcall-add-form-row {
+  display: flex;
+  gap: 8px;
+}
+.rollcall-add-form-row input[type='text'] {
+  flex: 1 1 0;
+  min-width: 0;
+  box-sizing: border-box;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  padding: 8px;
+}
+.rollcall-add-form-row input[type='text']:focus {
+  outline: 1px solid var(--accent);
+}
+.rollcall-add-form-row select {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  padding: 8px;
+}
+#rollcallAddBtn {
+  flex: 0 0 auto;
+}
+
+.rollcall-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rollcall-filter span {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-weight: 700;
+}
+.rollcall-filter select {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px;
+}
+
+.rollcall-register-row {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rollcall-register-row-view {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rollcall-register-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.rollcall-register-row-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.rollcall-register-row-grade {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.rollcall-register-row-tags {
+  font-size: 11px;
+  color: var(--accent);
+}
+.rollcall-register-row-buttons {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.rollcall-register-row-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+

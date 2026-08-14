@@ -32,6 +32,7 @@ const el = {
     stretch: document.getElementById('stretchTab'),
     ...Object.fromEntries(REINFORCE_MENU_TABS.map((t) => [t.id, document.getElementById(`${t.id}Tab`)])),
     tabata: document.getElementById('tabataTab'),
+    rollcall: document.getElementById('rollcallTab'),
   },
   reinforceMenuTabTemplate: document.getElementById('reinforceMenuTabTemplate'),
   paceRows: document.getElementById('paceRows'),
@@ -71,6 +72,20 @@ const el = {
   tabataTimer: document.getElementById('tabataTimer'),
   tabataStartBtn: document.getElementById('tabataStartBtn'),
   tabataResetBtn: document.getElementById('tabataResetBtn'),
+  rollcallProgress: document.getElementById('rollcallProgress'),
+  rollcallList: document.getElementById('rollcallList'),
+  rollcallRegisterToggle: document.getElementById('rollcallRegisterToggle'),
+  rollcallResetBtn: document.getElementById('rollcallResetBtn'),
+  rollcallMemberTemplate: document.getElementById('rollcallMemberTemplate'),
+  rollcallRegisterModal: document.getElementById('rollcallRegisterModal'),
+  rollcallRegisterCloseBtn: document.getElementById('rollcallRegisterCloseBtn'),
+  rollcallAddName: document.getElementById('rollcallAddName'),
+  rollcallAddGrade: document.getElementById('rollcallAddGrade'),
+  rollcallAddTags: document.getElementById('rollcallAddTags'),
+  rollcallAddBtn: document.getElementById('rollcallAddBtn'),
+  rollcallTagFilter: document.getElementById('rollcallTagFilter'),
+  rollcallRegisterList: document.getElementById('rollcallRegisterList'),
+  rollcallRegisterRowTemplate: document.getElementById('rollcallRegisterRowTemplate'),
 };
 
 /* ---------- Tabs ---------- */
@@ -2838,3 +2853,320 @@ requestAnimationFrame(tickTabata);
 // briefly flashing at its original spot in the markup.
 createStopwatch();
 requestAnimationFrame(tickAll);
+
+/* ---------- 点呼(ロールコール) ---------- */
+// 名簿は端末のlocalStorageに保存する(録音のような大きなバイナリではなく
+// 単純なJSONなので、IndexedDBではなくlocalStorageで十分)。
+const ROLLCALL_STORAGE_KEY = 'stopwatch_rollcall_members_v1';
+const ROLLCALL_GRADES = [4, 3, 2, 1];
+
+// 初期名簿(写真の名簿から読み取ったもの)。学年ごとに元の並び順のまま。
+// ※写真の文字が読み取りにくい箇所があるため、間違いがあれば「📋 名簿を
+// 編集」から修正してください。
+const ROLLCALL_INITIAL_MEMBERS = [
+  { name: '阪井 漠人', grade: 4 },
+  { name: '倉井 健文', grade: 4 },
+  { name: '中村 海斗', grade: 4 },
+  { name: '花本 史龍', grade: 4 },
+  { name: '淀川 緑史', grade: 4 },
+  { name: '平柳 芽祐', grade: 4 },
+  { name: '村上 直斗', grade: 4 },
+  { name: '安島 莉玖', grade: 4 },
+
+  { name: '舘田 翔太', grade: 3 },
+  { name: '蛯名 真登', grade: 3 },
+  { name: '遠藤 大成', grade: 3 },
+  { name: '小川原 陽斗', grade: 3 },
+  { name: '折田 壮太', grade: 3 },
+  { name: '佐々木 大輝', grade: 3 },
+  { name: '佐野 愛斗', grade: 3 },
+  { name: '樋本 天翔', grade: 3 },
+  { name: '福富 翔', grade: 3 },
+  { name: '船越 碧', grade: 3 },
+  { name: '松田 煌希', grade: 3 },
+  { name: '若林 朔弥', grade: 3 },
+  { name: '石川 浩輝', grade: 3 },
+
+  { name: '下野 拳斗', grade: 2 },
+  { name: '大島 福', grade: 2 },
+  { name: '河邑 亮汰', grade: 2 },
+  { name: '坂本 康太', grade: 2 },
+  { name: '福嶋 一凛', grade: 2 },
+  { name: '田中 智晴', grade: 2 },
+  { name: '樋口 慶馬', grade: 2 },
+  { name: '日向 蒼空', grade: 2 },
+  { name: '本吉 慶心', grade: 2 },
+  { name: '前川 翔悟', grade: 2 },
+  { name: '松田 祐真', grade: 2 },
+  { name: '紀田 菜緒', grade: 2 },
+
+  { name: '古川 陽樹', grade: 1 },
+  { name: '藤岡 幸太郎', grade: 1 },
+  { name: '新見 蒼唯', grade: 1 },
+  { name: '大数 遥斗', grade: 1 },
+  { name: '寺内 輔', grade: 1 },
+  { name: '谷口 修哉', grade: 1 },
+  { name: '栗林 凛太朗', grade: 1 },
+  { name: '大竹 実玖', grade: 1 },
+  { name: '斎藤 晴樹', grade: 1 },
+  { name: '前田 蒼空', grade: 1 },
+  { name: '横嶋 諒大', grade: 1 },
+  { name: '苗田 和佳', grade: 1 },
+  { name: '沖野 絵梨', grade: 1 },
+];
+
+function makeRollcallId() {
+  return `member-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function loadRollcallMembers() {
+  try {
+    const raw = localStorage.getItem(ROLLCALL_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    /* 壊れた保存データは無視して初期名簿にフォールバックする */
+  }
+  return ROLLCALL_INITIAL_MEMBERS.map((m, i) => ({
+    id: makeRollcallId(),
+    name: m.name,
+    grade: m.grade,
+    tags: [],
+    checked: false,
+    checkedSeq: 0,
+    sortIndex: i,
+  }));
+}
+
+let rollcallMembers = loadRollcallMembers();
+let rollcallNextCheckedSeq = 1 + rollcallMembers.reduce((max, m) => Math.max(max, m.checkedSeq || 0), 0);
+let rollcallNextSortIndex = 1 + rollcallMembers.reduce((max, m) => Math.max(max, m.sortIndex || 0), -1);
+
+function saveRollcallMembers() {
+  try {
+    localStorage.setItem(ROLLCALL_STORAGE_KEY, JSON.stringify(rollcallMembers));
+  } catch (e) {
+    /* localStorage unavailable (private browsing等) — 保存だけ諦める */
+  }
+}
+
+function parseRollcallTags(rawText) {
+  return rawText
+    .split(/[,，、]/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
+function allRollcallTags() {
+  const set = new Set();
+  rollcallMembers.forEach((m) => m.tags.forEach((t) => set.add(t)));
+  return Array.from(set).sort();
+}
+
+/* ----- 点呼タブ本体: 学年ごとに縦並び、押すと一番下にスライドする ----- */
+function renderRollcallProgress() {
+  const total = rollcallMembers.length;
+  const checkedCount = rollcallMembers.filter((m) => m.checked).length;
+  el.rollcallProgress.textContent = `点呼 ${checkedCount} / ${total}`;
+}
+
+function buildRollcallMemberButton(member) {
+  const node = el.rollcallMemberTemplate.content.firstElementChild.cloneNode(true);
+  node.dataset.id = member.id;
+  node.classList.toggle('is-checked', member.checked);
+  node.querySelector('.rollcall-member-name').textContent = member.name;
+  node.querySelector('.rollcall-member-tags').textContent = member.tags.join(' / ');
+  node.addEventListener('click', () => toggleRollcallChecked(member.id));
+  return node;
+}
+
+function renderRollcallList() {
+  el.rollcallList.innerHTML = '';
+  ROLLCALL_GRADES.forEach((grade) => {
+    const members = rollcallMembers.filter((m) => m.grade === grade);
+    if (members.length === 0) return;
+
+    // 未点呼(checked=false)は元の並び順のまま上に、点呼済みは押した順に
+    // 下に積み上がっていく(直近に押した人ほど一番下)。
+    const unchecked = members
+      .filter((m) => !m.checked)
+      .sort((a, b) => a.sortIndex - b.sortIndex);
+    const checked = members
+      .filter((m) => m.checked)
+      .sort((a, b) => a.checkedSeq - b.checkedSeq);
+
+    const section = document.createElement('div');
+    section.className = 'rollcall-grade-section';
+    const heading = document.createElement('div');
+    heading.className = 'rollcall-grade-heading';
+    heading.textContent = `${grade}年(${members.length - checked.length} / ${members.length})`;
+    section.appendChild(heading);
+
+    const list = document.createElement('div');
+    list.className = 'rollcall-grade-members';
+    [...unchecked, ...checked].forEach((member) => list.appendChild(buildRollcallMemberButton(member)));
+    section.appendChild(list);
+
+    el.rollcallList.appendChild(section);
+  });
+  renderRollcallProgress();
+}
+
+// タップ時の「一番下にスライド」感を出すため、再描画の前後で各行の位置を
+// 記録し(FLIPテクニック)、移動した分だけ逆方向にずらしておいてから
+// transitionで元の位置(=新しい位置)へ戻すことで、実際に滑るように見せる。
+function animateRollcallReorder(renderFn) {
+  const firstRects = new Map();
+  el.rollcallList.querySelectorAll('.rollcall-member').forEach((item) => {
+    firstRects.set(item.dataset.id, item.getBoundingClientRect());
+  });
+
+  renderFn();
+
+  el.rollcallList.querySelectorAll('.rollcall-member').forEach((item) => {
+    const first = firstRects.get(item.dataset.id);
+    if (!first) return;
+    const last = item.getBoundingClientRect();
+    const deltaY = first.top - last.top;
+    if (Math.abs(deltaY) < 1) return;
+    item.style.transition = 'none';
+    item.style.transform = `translateY(${deltaY}px)`;
+    requestAnimationFrame(() => {
+      item.style.transition = 'transform 280ms ease';
+      item.style.transform = '';
+    });
+  });
+}
+
+// タップで点呼済み↔未点呼をトグルする(誤タップの取り消しもできるように)。
+// 点呼済みにする時だけ checkedSeq を採番し直すので、何度もON/OFFしても
+// 最後にONにした瞬間の順番が保たれる(常に一番下に来る)。
+function toggleRollcallChecked(id) {
+  const member = rollcallMembers.find((m) => m.id === id);
+  if (!member) return;
+  member.checked = !member.checked;
+  member.checkedSeq = member.checked ? rollcallNextCheckedSeq++ : 0;
+  saveRollcallMembers();
+  animateRollcallReorder(renderRollcallList);
+}
+
+function resetRollcallChecks() {
+  if (!confirm('点呼の状態をリセットして、全員未点呼に戻しますか?')) return;
+  rollcallMembers.forEach((m) => {
+    m.checked = false;
+    m.checkedSeq = 0;
+  });
+  saveRollcallMembers();
+  animateRollcallReorder(renderRollcallList);
+}
+
+el.rollcallResetBtn.addEventListener('click', resetRollcallChecks);
+
+/* ----- 名簿の登録・編集モーダル ----- */
+function setRollcallRegisterModalOpen(open) {
+  el.rollcallRegisterModal.hidden = !open;
+  if (open) renderRollcallRegisterView();
+}
+el.rollcallRegisterToggle.addEventListener('click', () => setRollcallRegisterModalOpen(true));
+el.rollcallRegisterCloseBtn.addEventListener('click', () => setRollcallRegisterModalOpen(false));
+
+function renderRollcallTagFilterOptions() {
+  const currentValue = el.rollcallTagFilter.value;
+  const tags = allRollcallTags();
+  el.rollcallTagFilter.innerHTML = '';
+  const allOption = document.createElement('option');
+  allOption.value = '';
+  allOption.textContent = 'すべて表示';
+  el.rollcallTagFilter.appendChild(allOption);
+  tags.forEach((tag) => {
+    const opt = document.createElement('option');
+    opt.value = tag;
+    opt.textContent = tag;
+    el.rollcallTagFilter.appendChild(opt);
+  });
+  // 選んでいたタグがまだ存在するなら維持する(無くなっていたら「すべて」に戻る)。
+  el.rollcallTagFilter.value = tags.includes(currentValue) ? currentValue : '';
+}
+
+function buildRollcallRegisterRow(member) {
+  const node = el.rollcallRegisterRowTemplate.content.firstElementChild.cloneNode(true);
+  const viewEl = node.querySelector('.rollcall-register-row-view');
+  const editEl = node.querySelector('.rollcall-register-row-edit');
+  node.querySelector('.rollcall-register-row-name').textContent = member.name;
+  node.querySelector('.rollcall-register-row-grade').textContent = `${member.grade}年`;
+  node.querySelector('.rollcall-register-row-tags').textContent = member.tags.join(' / ');
+
+  node.querySelector('.rollcall-edit-btn').addEventListener('click', () => {
+    node.querySelector('.rollcall-edit-name').value = member.name;
+    node.querySelector('.rollcall-edit-grade').value = String(member.grade);
+    node.querySelector('.rollcall-edit-tags').value = member.tags.join(', ');
+    viewEl.hidden = true;
+    editEl.hidden = false;
+  });
+  node.querySelector('.rollcall-cancel-btn').addEventListener('click', () => {
+    viewEl.hidden = false;
+    editEl.hidden = true;
+  });
+  node.querySelector('.rollcall-save-btn').addEventListener('click', () => {
+    const name = node.querySelector('.rollcall-edit-name').value.trim();
+    if (!name) {
+      alert('氏名を入力してください。');
+      return;
+    }
+    member.name = name;
+    member.grade = Number(node.querySelector('.rollcall-edit-grade').value);
+    member.tags = parseRollcallTags(node.querySelector('.rollcall-edit-tags').value);
+    saveRollcallMembers();
+    renderRollcallRegisterView();
+    renderRollcallList();
+  });
+  node.querySelector('.rollcall-delete-btn').addEventListener('click', () => {
+    if (!confirm(`「${member.name}」を名簿から削除しますか?`)) return;
+    rollcallMembers = rollcallMembers.filter((m) => m.id !== member.id);
+    saveRollcallMembers();
+    renderRollcallRegisterView();
+    renderRollcallList();
+  });
+
+  return node;
+}
+
+function renderRollcallRegisterView() {
+  renderRollcallTagFilterOptions();
+  const filterTag = el.rollcallTagFilter.value;
+  const members = rollcallMembers
+    .filter((m) => !filterTag || m.tags.includes(filterTag))
+    .slice()
+    .sort((a, b) => (b.grade - a.grade) || (a.sortIndex - b.sortIndex));
+
+  el.rollcallRegisterList.innerHTML = '';
+  members.forEach((member) => el.rollcallRegisterList.appendChild(buildRollcallRegisterRow(member)));
+}
+
+el.rollcallTagFilter.addEventListener('change', renderRollcallRegisterView);
+
+el.rollcallAddBtn.addEventListener('click', () => {
+  const name = el.rollcallAddName.value.trim();
+  if (!name) {
+    alert('氏名を入力してください。');
+    return;
+  }
+  rollcallMembers.push({
+    id: makeRollcallId(),
+    name,
+    grade: Number(el.rollcallAddGrade.value),
+    tags: parseRollcallTags(el.rollcallAddTags.value),
+    checked: false,
+    checkedSeq: 0,
+    sortIndex: rollcallNextSortIndex++,
+  });
+  saveRollcallMembers();
+  el.rollcallAddName.value = '';
+  el.rollcallAddTags.value = '';
+  renderRollcallRegisterView();
+  renderRollcallList();
+});
+
+renderRollcallList();
