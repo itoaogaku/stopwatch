@@ -226,7 +226,16 @@
         <span>名簿の登録・編集</span>
         <button type="button" class="stretch-recordings-close-btn" id="rollcallRegisterCloseBtn" title="閉じる">×</button>
       </div>
-      <p class="pace-desc">選手を追加・編集・削除できます。タグは自由入力です(カンマ区切りで複数可。例: 故障者、イレギュラー)。タグを付けておくと、下の絞り込みでそのタグが付いた選手だけを表示できます。</p>
+      <p class="pace-desc">選手を追加・編集・削除できます。まず下の「タグを管理」でタグ(例: 故障者、イレギュラー)を登録しておくと、各選手にそのタグを選んで付けられ、絞り込みでそのタグが付いた選手だけを表示できます。</p>
+
+      <div class="rollcall-tag-manage">
+        <div class="rollcall-tag-manage-heading">タグを管理</div>
+        <div class="rollcall-tag-chip-list" id="rollcallTagManageList"></div>
+        <div class="rollcall-add-form-row">
+          <input type="text" id="rollcallNewTagName" placeholder="新しいタグ名(例: 故障者)" />
+          <button type="button" class="btn btn-ghost btn-sm" id="rollcallNewTagBtn">+ タグを追加</button>
+        </div>
+      </div>
 
       <div class="rollcall-add-form">
         <div class="rollcall-add-form-row">
@@ -238,8 +247,8 @@
             <option value="1">1年</option>
           </select>
         </div>
+        <div class="rollcall-tag-checkboxes" id="rollcallAddTagCheckboxes"></div>
         <div class="rollcall-add-form-row">
-          <input type="text" id="rollcallAddTags" placeholder="タグ(任意、カンマ区切り)" />
           <button type="button" class="btn btn-primary btn-sm" id="rollcallAddBtn">+ 追加</button>
         </div>
       </div>
@@ -283,9 +292,7 @@
             <option value="1">1年</option>
           </select>
         </div>
-        <div class="rollcall-add-form-row">
-          <input type="text" class="rollcall-edit-tags" placeholder="タグ(カンマ区切り)" />
-        </div>
+        <div class="rollcall-tag-checkboxes rollcall-edit-tag-checkboxes"></div>
         <div class="rollcall-register-row-buttons">
           <button type="button" class="btn btn-primary btn-sm rollcall-save-btn">保存</button>
           <button type="button" class="btn btn-ghost btn-sm rollcall-cancel-btn">キャンセル</button>

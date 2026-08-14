@@ -1448,6 +1448,69 @@ html, body {
   padding: 8px;
 }
 
+.rollcall-tag-manage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rollcall-tag-manage-heading {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.rollcall-tag-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rollcall-tag-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 6px 4px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.rollcall-tag-chip-delete {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+.rollcall-tag-empty-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.rollcall-tag-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rollcall-tag-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+.rollcall-tag-checkbox input {
+  accent-color: var(--accent);
+}
+
 .rollcall-register-row {
   background: var(--panel-2);
   border: 1px solid var(--border);
